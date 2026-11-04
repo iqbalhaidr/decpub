@@ -1,0 +1,28 @@
+{
+  "name": "@decpub/frontend",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Frontend polos (M9): teks, tautan, tabel, dan form bawaan browser. Disalin dari Roihan lalu dipolos (docs/arsitektur.md bagian 12).",
+  "scripts": {
+    "dev": "next dev --webpack -p 3000",
+    "build": "next build --webpack",
+    "start": "next start -p 3000",
+    "typecheck": "tsc --noEmit",
+    "check-plain": "node scripts/check-plain.mjs"
+  },
+  "dependencies": {
+    "@decpub/shared": "*",
+    "axios": "^1.17.0",
+    "next": "16.2.7",
+    "react": "19.2.4",
+    "react-dom": "19.2.4",
+    "viem": "^2.52.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.8.5",
+    "@types/react": "^19",
+    "@types/react-dom": "^19",
+    "typescript": "~5.8.0"
+  }
+}

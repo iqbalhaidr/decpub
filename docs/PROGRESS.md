@@ -4,7 +4,7 @@ Diperbarui di akhir setiap sesi.
 
 ## Terakhir diperbarui
 
-2026-11-05, sesi M8.
+2026-11-05, sesi M9.
 
 ## Selesai
 
@@ -131,9 +131,27 @@ Diperbarui di akhir setiap sesi.
   - **Tes:** `npm test` lulus seluruhnya: kontrak **265** (+13 `PublicationRecords.test.ts`: penerbitan, nomor DOI, bukan-Published, sekali per sesi, hak operator, izin minter, komentar, disclosure sah/ganda/palsu/penelaah/editor), shared **28** (+6), incentive-core 17, storage-sim 19, zk-sim **48** (+9 `SELECTIVE_DISCLOSURE`), server **127** (+15 `m8.test.ts`: disclosure, komentar, kandidat tertunda). `npm run typecheck` bersih. Regresi `demo:m1`-`demo:m7` dan `check-wiring` (95/95) lulus di deployment baru.
   - **Uji mutasi** (karena hasil lulus mudah): tanpa cek kepemilikan penulis, tanpa cek kebenaran atribut, tanpa cek hash naskah asli, dan unggah-sebelum-catat masing-masing membuat 1 tes server gagal; di kontrak: peran Penelaah diizinkan, pengungkapan ganda, DOI sebelum Published, dan verifikasi bukti dilewati masing-masing membuat tes gagal; seleksi tanpa syarat bidang terverifikasi membuat `demo:m8` gagal (zk-sim `ASSIGNMENT` menolaknya sebagai lapis kedua). Semua dipulihkan.
 
+- **M9 selesai.** Semua kriteria terpenuhi dan dijalankan sendiri (`npm run demo:m9`, Chrome sungguhan lewat CDP, node Hardhat, storage-sim, zk-sim, dan server sebagai proses nyata, tanpa mock; 54 pemeriksaan OK; dijalankan berulang pada data yang sama):
+  - **Frontend polos** `integrated/frontend` (workspace `@decpub/frontend`, Next 16.2.7 + React 19 + viem + axios, TypeScript ESM). Dari `$ROIHAN/frontend` hanya `tsconfig.json` dan `.gitignore` yang disalin; **semua halaman ditulis ulang**, karena strip-down 809 baris `className` di 28 berkas sama saja dengan menulis ulang dan antarmuka Roihan hanya mengenal backend Go-nya. Tailwind, lucide, wagmi, react-query, react-compiler, `next/font`, toast, stepper, badge, hero, footer, aset `public/*.svg`, dan tiga halaman rusak Roihan (`/reviewer/submit`, `/reviewer/update`, `/articles/[id]/peer-reviews`) tidak dibawa. Satu `globals.css` 5 baris: font bawaan, tabel berbingkai tipis, tanpa warna.
+  - **Halaman:** `/` (tautan, mode jaringan, alamat kontrak, label `[SIMULASI]`, statistik agregat), `/login` (dengan daftar akun demo lokal), `/register`, `/profile`, `/journals`, `/tracker`, `/tracker/[id]`, `/articles`, `/articles/[id]` (DOI, hash, penulis anonim atau yang membuka diri, open review, komentar), `/incentive/[id]`. Halaman publik adalah server component (HTML polos tanpa JS yang dibutuhkan untuk dibaca); login/profil/komentar/pelacak-form client component.
+  - **`/profile`**: buat, ekspor (tombol "Tampilkan untuk diekspor"), impor, dan hapus secret di `localStorage` (kunci per akun); `identityCommitment` dan akun permanen diturunkan dengan `@decpub/shared` yang sama dengan server dan skrip; daftarkan identitas (`POST /me/identity`, hanya commitment dan alamat); kredensial peran dan bidang; peringatan bila commitment secret lokal berbeda dengan yang terdaftar; kontribusi sendiri.
+  - **`lib/wallet.ts`** (`WalletProvider`): `DevWalletProvider` (akun Hardhat terbuka indeks >= 5, setara `ClientChain` skrip) dan `BrowserWalletProvider` (EIP-1193/MetaMask), dipilih dari jaringan. Belum dipakai halaman (M10, `/author/apc`); diuji di `demo:m9` untuk dev wallet (setor APC ke EscrowPool sungguhan).
+  - **Perbaikan server** yang ditemukan saat membangun pelacak: `ProjectionService.session` mencari catatan editorial terbaru sampai revisi 0. Sebelumnya hanya mencari di `revisionCount`, jadi sesi yang direvisi Minor (yang melompati penyaringan baru, B3) menampilkan "belum ada putusan editorial".
+  - **Skrip:** `scripts/lib/browser.ts` (pengendali Chrome tanpa dependensi, Node `WebSocket`): isi form React, klik, baca teks, tangkapan layar, rekam semua permintaan jaringan. `scripts/lib/services.ts` mendapat mode `keep` (`DEMO_KEEP=1`): layanan di port bawaan (8081/8082/3001), data di `data/demo-keep`, proses lepas dan hidup setelah skrip selesai (`kill $(cat data/demo-keep/pids)`).
+  - **Hasil `demo:m9`:**
+    - A. Polos: dependensi bebas Tailwind/lucide/wagmi/react-query (`npm ls` juga); tak ada `className`, `style=`, `<img>`/`<svg>`, impor font/ikon; satu CSS < 15 baris tanpa warna/bayangan/animasi/`border-radius`/`background`; tanpa `public/`. **Di browser:** gaya terhitung semua elemen: nol media, nol bayangan, nol sudut membulat (di luar kontrol form), nol animasi/transisi, nol warna latar, teks hitam (tautan memakai warna bawaan browser), font `"Times New Roman", serif`.
+    - B. `tsc --noEmit` dan `next build` lulus.
+    - C. Di browser: beranda, jurnal, daftar artikel (DOI dan judul sama dengan API, satu baris per artikel), detail artikel (sha256 asli dan anonim sama dengan API, "Tidak pernah diungkap" untuk penelaah, tautan unduh PDF benar-benar mengunduh `%PDF` dari storage), `/incentive/[id]` (satu baris per pseudonim reveal, bobot BWM/ECWM/fusi, hash laporan cocok on-chain, tanpa alamat 42 karakter penuh), pelacak (ID tak sah ditolak, ID sah tak dikenal menampilkan galat server, sesi sungguhan: status, jejak 66 event sama dengan API, P03 dibaca dari storage, putusan editorial, keputusan batch).
+    - D. Sembilan halaman publik tidak memuat surel akun (penelaah, penulis, editor, admin) selain surel yang sengaja dibuka lewat selective disclosure.
+    - E. Masuk dengan akun salah ditolak; daftar, daftar ulang ditolak 409; masuk, token di browser; buat secret di browser; commitment dan alamat yang tampil sama dengan hitungan ulang di Node; daftarkan identitas (server menyimpan nilai yang sama); kredensial Author saja; muat ulang: secret bertahan dan tersembunyi; impor tak sah ditolak, impor secret berbeda memicu peringatan, impor yang benar tanpa peringatan; penelaah tanpa bidang ditolak, dengan bidang masuk antrian admin. **Dari 814 permintaan jaringan, tidak satu pun (URL maupun isi) memuat secret**; isi permintaan daftar identitas hanya `identityCommitment` dan `permanentAddress`.
+    - F. Komentar dari browser: tampil, `verified` (hash cocok event on-chain), nama `pembaca-xxxxxx`, tanpa surel; keluar menghapus token. Tanpa galat JavaScript di sepanjang sesi.
+    - G. `DevWalletProvider.deposit`: transaksi sukses, saldo EscrowPool naik tepat satu APC.
+  - **Uji mutasi** (karena hasil lulus mudah): `secret` ditambahkan ke isi permintaan daftar identitas membuat 2 pemeriksaan gagal; `th { background; box-shadow }` membuat 3 pemeriksaan gagal (23 elemen berbayang). Keduanya dipulihkan. Pemeriksaan editorial pada sesi revisi gagal sebelum perbaikan server di atas, lulus sesudahnya.
+  - **Tes:** `npm test` lulus seluruhnya (kontrak 265, shared 28, incentive-core 17, storage-sim 19, zk-sim 48, server 127; tidak ada tes baru, karena perubahan server hanya satu pemanggilan berulang yang tercakup `demo:m9`). `npm run typecheck` bersih (kini termasuk frontend). Regresi `demo:m3`, `demo:m4`, `demo:m5`, `demo:m8`, dan `check-wiring` (95/95) lulus.
+
 ## Tersisa
 
-Milestone berikutnya: **M9, frontend polos dan halaman publik** (salin `$ROIHAN/frontend`, strip-down sesuai `arsitektur.md` bagian 12; halaman `/`, `/login`, `/register`, `/profile`, `/journals`, `/tracker`, `/articles`, `/incentive/[id]`). Endpoint yang dibutuhkan halaman artikel sudah ada sejak M8 (`/articles*`, `/stats`). M9 sampai M13 belum dikerjakan. Pekerjaan backend yang belum ada: tenggat otomatis.
+Milestone berikutnya: **M10, frontend penulis** (`/author/apc`, `/author/submit`, `/author/sessions/[id]`, `/author/revise`, `/author/disclose`; bagian secret di `/profile` sudah ada dari M9; `WalletProvider` sudah ada). Butuh CORS di zk-sim (browser membuat bukti ke zk-sim langsung). M10 sampai M13 belum dikerjakan. Pekerjaan backend yang belum ada: tenggat otomatis.
 
 Dari M7 yang belum dikerjakan (lihat Masalah terbuka): tenggat otomatis fase telaah dan timeout refund otomatis, penutupan sesi `Incomplete` oleh penulis.
 
@@ -332,6 +350,21 @@ Tidak ada yang bertentangan dengan `arsitektur.md` atau `analisis/`, sehingga ti
 - **Editor yang membuka diri hanya bila ia penerima undangan yang sudah menerima** (`accepted_at`), bukan editor lain yang kebetulan punya peran editor.
 - Keadaan chain lokal: `demo:m6` memajukan jam chain > 180 hari, sehingga tahun di DOI bisa melompat (tahun diambil dari timestamp blok); format tetap sama.
 
+## Temuan di lapangan (M9)
+
+Tidak ada yang bertentangan dengan `arsitektur.md` atau `analisis/` pada tingkat desain, sehingga tidak ada yang saya hentikan untuk ditanyakan. Penyimpangan kecil dan keputusan yang saya ambil sendiri (semuanya reversibel; mohon dikoreksi bila tidak setuju):
+
+- **Turbopack tidak bisa memuat `@decpub/shared`.** Paket itu menulis impor relatif `./x.js` (aturan ESM Node) padahal berkasnya `x.ts`; Turbopack (bawaan Next 16) tidak punya pemetaan itu dan gagal pada 23 modul. Dev dan build memakai webpack (`next dev --webpack`, `next build --webpack`) dengan `resolve.extensionAlias`. Konsekuensi: tidak ada percepatan Turbopack; bila `shared` kelak dikompilasi ke JS, ini bisa dicabut. `frontend/package.json` bertipe `"type": "module"` (tanpa itu `tsx` memperlakukan `frontend/src/lib/wallet.ts` sebagai CJS saat diimpor skrip dan gagal memuat `multiformats`).
+- **Chain dan domain EIP-712 "dari env" ditafsirkan sebagai: chainId, jaringan, dan alamat kontrak dari `GET /config` server** (yang membacanya dari berkas deployment, satu sumber), **RPC dari `NEXT_PUBLIC_RPC_URL`**, API dari `NEXT_PUBLIC_API_URL`, gateway storage dari `NEXT_PUBLIC_STORAGE_GATEWAY_URL` (halaman beranda), zk-sim dari `NEXT_PUBLIC_ZK_URL` (M10). Tidak ada chainId hardcoded di frontend (di Roihan ada di 7 titik). Halaman yang butuh chainId (M10) memanggil `/config`. URL berkas (naskah, laporan, telaah) datang dari balasan API (`gatewayUrl` server), jadi tak ada `https://ipfs.io/ipfs/` di mana pun.
+- **Mutasi tak ada di Roihan yang dibawa:** bind wallet, Google verify, `fundAndPublish`, dompet sesi, toast, stepper, status badge. `ESLint` tidak dipasang (Roihan punya `eslint-config-next`); pemeriksaan kualitas = `tsc --noEmit`, `next build`, dan `demo:m9`.
+- **Menu hanya memuat halaman yang sudah ada.** Halaman per peran (M10, M11) ditambahkan ke `Nav.tsx` dan beranda saat dibuat; beranda sekarang menuliskan bahwa itu belum ada. Setelah masuk, semua peran diarahkan ke `/profile` (Roihan mengarahkan editor ke `/editor`; itu M11).
+- **Pelacak publik tidak punya daftar semua sesi**, hanya form ID sesi dan "naskah saya" (`GET /manuscripts`, wajib login, hanya penulis dan penelaah). Daftar semua sesi akan menautkan orang ke aktivitas, dan kontrak Ciko tidak punya enumerasi sesi.
+- **Asal CORS server kini `http://localhost:3000` dan `http://127.0.0.1:3000`** (bawaan). Browser menganggap keduanya asal berbeda; dengan hanya `localhost`, membuka `http://127.0.0.1:3000` membuat login, profil, dan komentar gagal diam-diam (halaman publik tetap tampil karena dirender server). Server yang sudah berjalan perlu dimulai ulang agar bawaan baru berlaku; `demo:m9` memakai `localhost:3000`.
+- **`demo:m9` butuh data artikel.** Prasyaratnya `DEMO_KEEP=1 npm run demo:m8` (menyisakan layanan dan 2 artikel terbit). `GET /articles` chain-wide (temuan M8), jadi artikel sisa demo lain di chain yang sama tampil "(metadata tidak terjangkau)"; `demo:m9` melewatkan detailnya dan menuliskannya sebagai INFO. Chain baru (`npm run chain` dimulai ulang lalu `deploy:local`) menghindari itu. Satu-satunya artikel pada data demo adalah yang penulisnya membuka identitas, sehingga kasus "artikel anonim" tampil dilewati (SKIP) dan hanya diuji `demo:m8`.
+- **Halaman server memakai `axios` dari Node** (`getJson`), bukan `fetch` Next, sehingga tidak ada cache data Next; semua halaman publik `force-dynamic`. Bila backend mati, halaman tetap terbuka dan menampilkan "GALAT: Tidak bisa menghubungi backend ...".
+- **Perilaku yang perlu diketahui untuk M10:** `localStorage` menyimpan satu secret per akun (`decpub.secret.<userId>`) dan token JWT (`decpub.token`); data commit tertunda berkunci sesi+slot (catatan M5) harus disimpan di sana juga. Profil menampilkan secret langsung setelah dibuat, sesudah itu tersembunyi sampai tombol ditekan. Pembuatan ulang secret menimpa tanpa pemulihan setelah konfirmasi.
+- **`npm run build -w frontend` menulis `frontend/next-env.d.ts` dan `.next/`**; keduanya diabaikan git. `npm install` menambah 140 paket; rantai `npm audit` (16 high, 1 critical) belum diperiksa, sama seperti M0.
+
 ## Masalah terbuka
 
 - Kode Roihan belum pernah dijalankan. Kontrak Hugo asli tidak dijalankan; yang diuji adalah kontrak turunannya (M6). Pembandingan langsung dengan `Hugo/` asli (mis. `npm run test:contracts` Hugo) belum dilakukan; angka Lampiran B direproduksi dari data dan rumusnya.
@@ -339,7 +372,9 @@ Tidak ada yang bertentangan dengan `arsitektur.md` atau `analisis/`, sehingga ti
 - Penelaah yang tidak commit atau reveal ditangani admin (`close-phase`, M5). **Tenggat otomatis tetap belum ada** (tidak masuk kriteria M7): tidak ada penjadwal di server, jadi `close-phase` dan refund timeout (`POST /escrow/refund` oleh penulis, `closeAfterRefund` menutup sesi) tetap dipicu manusia. Refund timeout teruji di kontrak (M6) dan penutupan sesinya di tes unit M7, tetapi belum didemokan di chain melalui server. Penelaah yang tidak mengikat penugasan dan editor yang tidak merespons belum punya jalur pengganti.
 - Dua keputusan terbuka di "Temuan di lapangan (M4)": tautan pseudonim di server saat pengikatan, dan pembuatan pseudonim yang tak dibatasi undangan.
 - `npm install` melaporkan kerentanan pada rantai dev; belum diperiksa (sama seperti M0).
-- Frontend/zk-sim: CORS zk-sim belum diatur (M10).
+- Frontend/zk-sim: CORS zk-sim belum diatur (M10: browser memanggil zk-sim langsung untuk membuat bukti). CORS server sudah mencakup `localhost` dan `127.0.0.1` (M9).
+- Frontend dijalankan dengan webpack, bukan Turbopack (temuan M9). Dev server (`npm run frontend`) hanya diuji dapat menyala dan melayani halaman; `demo:m9` menguji build produksi.
+- Frontend baru melayani halaman publik, akun, dan secret. Aksi penulis (M10), editor, penelaah, dan admin (M11) belum punya halaman; sementara dijalankan skrip `demo:m*`.
 - Tiga keputusan M6 sudah dijawab (terima kondisi sekarang), bukan lagi terbuka. Refund `Incomplete` tetap hanya lewat timeout; penutupan sesi `Incomplete` oleh penulis (selain timeout) tidak ada.
 - Empat batasan M7 (pembulatan klaim reputasi ke bawah, 10 pseudonim terbaru, kebijakan terkunci hanya di server, tanpa tenggat otomatis) sudah disetujui dan tercatat di arsitektur bagian 13; bukan lagi terbuka.
 - Tidak ada pembatasan laju (rate limit) di endpoint tanpa JWT (`/escrow/*`, `/flows/*`, `/incentive/*`); bukan masalah untuk demo, perlu bila dipakai di luar lokal.
@@ -379,6 +414,12 @@ npm run test:incentive   # M6: incentive-core (pipeline Hugo, model referensi bi
 npm run demo:m6          # demo/regresi M6: escrow, refund, timeout, D1 = Lampiran B, klaim, decay (prasyarat sama; zk-sim nyala sendiri; memajukan jam chain > 180 hari)
 npm run demo:m7          # demo/regresi M7: APC di muka, imbalan sesuai kualitas, hash laporan QoS = on-chain, klaim, reputasi per epoch, q4 sesi kedua, refund (prasyarat sama; memajukan jam chain beberapa hari)
 npm run demo:m8          # demo/regresi M8: verifikasi bidang menentukan kandidat, DOI, artikel anonim, open review, komentar, selective disclosure, revisi + DOI versi 2 (prasyarat sama)
+
+# M9: frontend polos. Butuh layanan hidup dengan data artikel; paling bersih di chain baru:
+DEMO_KEEP=1 npm run demo:m8   # menyisakan storage :8081, zk :8082, server :3001 (data di data/demo-keep, log di sana juga)
+npm run demo:m9               # membangun frontend, menyalakannya di :3000, menguji di Chrome sungguhan (butuh google-chrome; atau isi CHROME_BIN), tangkapan layar di demo-output/m9
+npm run frontend              # mencoba sendiri di browser: http://localhost:3000 (dev, webpack); `npm run build:frontend` lalu `npm run start -w frontend` untuk produksi
+kill $(cat data/demo-keep/pids)   # menghentikan layanan yang disisakan
 ```
 
 Target akhir: `cd integrated && npm install && npm run demo`.

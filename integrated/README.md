@@ -4,19 +4,19 @@ Integrasi tiga tugas akhir (Ciko, Hugo, Roihan) menjadi satu sistem publikasi il
 anonim (triple blind) dengan insentif penelaah. Rancangan: `../docs/arsitektur.md`.
 Urutan kerja: `../docs/PLAN.md`. Status: `../docs/PROGRESS.md`.
 
-**Status saat ini: M8 selesai.** Kontrak Ciko (M0), storage simulator (M1), ZK simulasi,
+**Status saat ini: M9 selesai.** Kontrak Ciko (M0), storage simulator (M1), ZK simulasi,
 `ActionGateway`, dan pseudonim tanpa tautan (M2), backend P01-P04 (M3), P05-P08 jalur diterima (M4),
 revisi, zona abu-abu, dan penolakan (M5), kontrak escrow dan insentif Hugo (M6), serta insentif di backend
 (APC di muka, QoS, imbalan otomatis, klaim, reputasi, refund; M7) berjalan. Pasca-publikasi dan pelengkap Roihan
 (DOI NFT, selective disclosure, open review, komentar, statistik agregat; M8) berjalan.
-Frontend menyusul (M9 dst).
+Frontend polos untuk halaman publik, akun, dan secret (M9) berjalan; halaman per peran menyusul (M10 dst).
 Target akhir: `npm install && npm run demo`.
 
 ## Prasyarat
 
 - Node >= 22 (diuji di Node 24.11.0), npm 11.
 
-## Menjalankan (M0 sampai M8)
+## Menjalankan (M0 sampai M9)
 
 ```bash
 cd integrated
@@ -44,6 +44,28 @@ npm run demo:m5          # demo/regresi M5: revisi Minor/Major, zona abu-abu, de
 npm run demo:m6          # demo/regresi M6: escrow, refund, timeout, distribusi D1 = Lampiran B Hugo, klaim, decay (prasyarat sama; zk-sim dinyalakan sendiri)
 npm run demo:m7          # demo/regresi M7: APC di muka, imbalan sesuai kualitas, laporan QoS = hash on-chain, klaim, reputasi per epoch, q4 sesi kedua, refund (prasyarat sama)
 npm run demo:m8          # demo/regresi M8: verifikasi bidang menentukan kandidat, DOI, artikel anonim, open review, komentar, selective disclosure, revisi + DOI versi 2 (prasyarat sama)
+npm run demo:m9          # demo/regresi M9: frontend diuji di Chrome sungguhan (prasyarat di bawah)
+```
+
+### Frontend polos (M9)
+
+Teks, tautan, tabel, dan form bawaan browser; tanpa warna, ikon, atau animasi. Halaman: `/` `/login` `/register` `/profile`
+`/journals` `/tracker` `/tracker/<sessionId>` `/articles` `/articles/<sessionId>` `/incentive/<sessionId>`.
+
+```bash
+npm run chain && npm run deploy:local          # chain baru (terminal 1 dan 2)
+DEMO_KEEP=1 npm run demo:m8                    # data: 2 artikel terbit; storage, zk, server tetap hidup (:8081, :8082, :3001)
+npm run frontend                               # http://localhost:3000   (atau: npm run demo:m9 untuk uji otomatis di Chrome)
+kill $(cat data/demo-keep/pids)                # menghentikan layanan
+```
+
+Mencoba manual: buka `/articles` lalu salah satu artikel (DOI, open review, komentar), `/incentive/<id>` dari tautan di artikel,
+`/tracker` untuk membuka sesi lewat ID. Daftar di `/register` (akun demo lokal ada di `/login`), masuk, lalu di `/profile`:
+buat secret (ekspor dan simpan; hanya ada di browser), daftarkan identitas, lihat kredensial. Buka frontend lewat `localhost:3000`
+atau `127.0.0.1:3000` (keduanya diizinkan CORS server).
+
+Alamat backend, RPC, gateway storage, dan zk-sim diatur lewat `frontend/.env.local.example` (`NEXT_PUBLIC_*`).
+Dev dan build memakai webpack (`--webpack`) karena Turbopack tidak memetakan impor `./x.js` ke `x.ts` di `@decpub/shared`.
 ```
 
 `demo:m6` memajukan jam chain lebih dari 180 hari dan `demo:m7` beberapa hari (`evm_increaseTime`). Tidak merusak demo lain; jalankan ulang
@@ -85,6 +107,8 @@ services/storage-sim/     simulator IPFS + halaman HTML (Express)
 packages/incentive-core/  salinan mesin insentif Hugo (normalisasi, BWM, ECWM, fusi, TOPSIS) + model referensi kontrak
 services/zk-sim/          attestor bukti ZK simulasi (Express)
 scripts/milestones/       demo:mN, dipertahankan sebagai uji regresi
+scripts/lib/              klien skrip (Member, Api, flow), layanan proses nyata (services.ts, mode DEMO_KEEP), pengendali Chrome (browser.ts)
+frontend/                 Next.js polos (M9): halaman publik, akun, secret; WalletProvider (dipakai M10)
 contracts/
   contracts/ciko/         9 kontrak Ciko (salinan; hanya EphemeralAccounts diubah)
   contracts/zk/           IZkVerifier, SimulatedZkVerifier

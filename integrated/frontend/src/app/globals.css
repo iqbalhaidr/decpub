@@ -1,0 +1,6 @@
+/* Sengaja polos: tanpa warna, ikon, bayangan, atau animasi. Hanya font dan tabel berbingkai tipis. */
+body { font-family: "Times New Roman", serif; max-width: 62em; margin: 1em auto; padding: 0 1em; }
+table { border-collapse: collapse; }
+th, td { border: 1px solid; padding: 2px 6px; text-align: left; vertical-align: top; }
+pre { white-space: pre-wrap; overflow-wrap: anywhere; }
+input[type="text"], input[type="email"], input[type="password"], textarea { width: 30em; max-width: 100%; }

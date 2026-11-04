@@ -8,7 +8,8 @@
     "contracts",
     "packages/*",
     "services/*",
-    "server"
+    "server",
+    "frontend"
   ],
   "scripts": {
     "chain": "npm run node -w contracts",
@@ -18,7 +19,7 @@
     "test:contracts": "npm run test -w contracts",
     "storage": "npm run start -w services/storage-sim",
     "test:storage": "npm run test -w packages/shared && npm run test -w services/storage-sim",
-    "typecheck": "npm run typecheck -w packages/shared && npm run typecheck -w packages/incentive-core && npm run typecheck -w services/storage-sim && npm run typecheck -w services/zk-sim && npm run typecheck -w server",
+    "typecheck": "npm run typecheck -w packages/shared && npm run typecheck -w packages/incentive-core && npm run typecheck -w services/storage-sim && npm run typecheck -w services/zk-sim && npm run typecheck -w server && npm run typecheck -w frontend",
     "demo:m1": "node --import tsx scripts/milestones/m1.ts",
     "zk": "npm run start -w services/zk-sim",
     "test:zk": "npm run test -w services/zk-sim",
@@ -34,7 +35,10 @@
     "test:server": "npm run test -w server",
     "test:shared": "npm run test -w packages/shared",
     "test": "npm run test:contracts && npm run test:storage && npm run test:incentive && npm run test:zk && npm run test:server",
-    "test:incentive": "npm run test -w packages/incentive-core"
+    "test:incentive": "npm run test -w packages/incentive-core",
+    "frontend": "npm run dev -w frontend",
+    "build:frontend": "npm run build -w frontend",
+    "demo:m9": "node --import tsx scripts/milestones/m9.ts"
   },
   "engines": {
     "node": ">=22"

@@ -6,7 +6,7 @@
  * Prasyarat: node Hardhat berjalan dan kontrak sudah di-deploy (`contracts/deployments/<network>.json`).
  */
 import { spawn, type ChildProcess } from "node:child_process";
-import { mkdtempSync, rmSync } from "node:fs";
+import { closeSync, mkdirSync, mkdtempSync, openSync, rmSync, writeFileSync } from "node:fs";
 import { createServer } from "node:net";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
@@ -52,11 +52,25 @@ export interface StartOptions {
   serverEnv?: Record<string, string>;
   /** Tampilkan keluaran proses. */
   verbose?: boolean;
+  /**
+   * Biarkan layanan hidup setelah skrip selesai (untuk mencoba frontend di browser). Memakai port bawaan
+   * (storage 8081, zk 8082, server 3001) dan direktori `data/demo-keep` yang dikosongkan dulu; keluaran proses ke
+   * berkas log di sana. Bawaan: env `DEMO_KEEP=1`. Hentikan dengan `kill $(cat data/demo-keep/pids)`.
+   */
+  keep?: boolean;
 }
 
 export async function startServices(opts: StartOptions = {}): Promise<Services> {
-  const dataDir = mkdtempSync(join(tmpdir(), "decpub-demo-"));
-  const [storagePort, zkPort, serverPort] = [await freePort(), await freePort(), await freePort()];
+  const keep = opts.keep ?? process.env.DEMO_KEEP === "1";
+  let dataDir: string;
+  if (keep) {
+    dataDir = join(ROOT, "data", "demo-keep");
+    rmSync(dataDir, { recursive: true, force: true });
+    mkdirSync(dataDir, { recursive: true });
+  } else {
+    dataDir = mkdtempSync(join(tmpdir(), "decpub-demo-"));
+  }
+  const [storagePort, zkPort, serverPort] = keep ? [8081, 8082, 3001] : [await freePort(), await freePort(), await freePort()];
   const urls = {
     storage: `http://127.0.0.1:${storagePort}`,
     zk: `http://127.0.0.1:${zkPort}`,
@@ -66,12 +80,16 @@ export async function startServices(opts: StartOptions = {}): Promise<Services> 
   const common = { ...process.env, STORAGE_API_URL: urls.storage, STORAGE_GATEWAY_URL: urls.storage, ZK_SIM_URL: urls.zk };
 
   const launch = (name: string, cwd: string, loader: string, env: Record<string, string>): ChildProcess => {
+    // Mode keep: proses lepas dari skrip ini (detached) dan menulis log ke berkas, supaya hidup setelah skrip selesai.
+    const log = keep ? openSync(join(dataDir, `${name}.log`), "a") : -1;
     const p = spawn(process.execPath, ["--import", loader, "src/main.ts"], {
       cwd: join(ROOT, cwd),
       env: { ...common, ...env },
-      stdio: opts.verbose ? "inherit" : ["ignore", "pipe", "pipe"],
+      stdio: keep ? ["ignore", log, log] : opts.verbose ? "inherit" : ["ignore", "pipe", "pipe"],
+      detached: keep,
     });
-    if (!opts.verbose) {
+    if (keep) closeSync(log);
+    if (!opts.verbose && !keep) {
       let buf = "";
       const keep = (d: Buffer) => (buf = (buf + d.toString()).slice(-4000));
       p.stdout?.on("data", keep);
@@ -100,14 +118,20 @@ export async function startServices(opts: StartOptions = {}): Promise<Services> 
     await waitHealthy(urls.server, "server", server, 90_000);
   } catch (e) {
     for (const p of procs) p.kill("SIGTERM");
-    rmSync(dataDir, { recursive: true, force: true });
+    if (!keep) rmSync(dataDir, { recursive: true, force: true });
     throw e;
+  }
+
+  if (keep) {
+    writeFileSync(join(dataDir, "pids"), procs.map((p) => p.pid).join(" ") + "\n");
+    for (const p of procs) p.unref();
   }
 
   return {
     urls,
     dataDir,
     async stop(cleanup = true) {
+      if (keep) return; // layanan sengaja dibiarkan hidup; hentikan dengan `kill $(cat <dataDir>/pids)`
       for (const p of procs) p.kill("SIGTERM");
       await new Promise((r) => setTimeout(r, 400));
       if (cleanup) rmSync(dataDir, { recursive: true, force: true });

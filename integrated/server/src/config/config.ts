@@ -95,7 +95,7 @@ export function loadConfig(env: Env = process.env, cwd = process.cwd()): AppConf
     issuerPrivateKey: loadPrivateKey("ISSUER_PRIVATE_KEY", "credential issuer", env),
     storage: storageConfigFromEnv(env),
     zkUrl: (env.ZK_SIM_URL ?? "http://127.0.0.1:8082").replace(/\/+$/, ""),
-    corsOrigin: env.CORS_ORIGIN ?? "http://localhost:3000",
+    corsOrigin: env.CORS_ORIGIN ?? "http://localhost:3000,http://127.0.0.1:3000",
     plagiarismThreshold: int(env.PLAGIARISM_THRESHOLD, 30),
     corpusDir: resolve(cwd, env.PLAGIARISM_CORPUS_DIR ?? "corpus"),
     escrowRequired: bool(env.ESCROW_REQUIRED, true),

@@ -34,7 +34,9 @@ export class ProjectionService {
   async session(sessionId: Hex) {
     const session = await this.reader.getSession(sessionId);
     const automaticCheck = await this.reader.latestCheck(sessionId);
-    const editorial = await this.reader.editorialRecord(sessionId, session.revisionCount);
+    // Revisi Minor kembali ke pemilihan penelaah tanpa penyaringan baru (B3), jadi catatan editorial terbaru bisa ada di revisi lebih lama.
+    let editorial = null;
+    for (let rev = session.revisionCount; rev >= 0 && !editorial; rev--) editorial = await this.reader.editorialRecord(sessionId, rev);
 
     const batchNo = await this.reader.latestBatchNumber(sessionId);
     const phase = await this.reader.reviewPhase(sessionId);
