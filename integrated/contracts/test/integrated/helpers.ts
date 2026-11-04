@@ -37,7 +37,7 @@ export const Status = {
 } as const;
 
 export async function deploySystem() {
-  const { viem } = await hre.network.create();
+  const { viem, networkHelpers } = await hre.network.create();
   const wallets = (await viem.getWalletClients()) as Wallet[];
   const publicClient = await viem.getPublicClient();
   const [admin, operator, stranger] = wallets;
@@ -90,7 +90,7 @@ export async function deploySystem() {
     signProof(key, chainId, zkVerifier.address, kind, sig);
 
   return {
-    viem, publicClient, wallets, admin, operator, stranger, chainId, attestor,
+    viem, networkHelpers, publicClient, wallets, admin, operator, stranger, chainId, attestor,
     permanentAccounts, ephemeralAccounts, publicationSessions, automaticChecks,
     editorialScreenings, assignmentProofs, reviewerSelections, reviewSubmissions,
     reviewDecisions, zkVerifier, gateway, prove,

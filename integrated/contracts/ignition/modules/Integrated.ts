@@ -2,9 +2,11 @@ import { buildModule } from '@nomicfoundation/hardhat-ignition/modules';
 import { attestorAddress } from '@decpub/shared';
 import CikoSystemModule from './CikoSystem.js';
 import { GATEWAY_MANAGED, SESSION_STATUS_WRITERS } from '../../wiring.js';
+import { hugoParams } from '../../hugo-params.js';
 
 /**
- * Deploy sistem terintegrasi (M2): 9 kontrak Ciko, `SimulatedZkVerifier`, `ActionGateway`.
+ * Deploy sistem terintegrasi: 9 kontrak Ciko, `SimulatedZkVerifier`, `ActionGateway` (M2),
+ * dan `EscrowPool`, `ReputationSBT`, `IncentiveEngine` (M6).
  *
  * Izin yang dipasang (lihat `wiring.ts`):
  *  1. `ActionGateway` menjadi session manager di 8 kontrak Ciko. Operator (server/relayer)
@@ -15,6 +17,10 @@ import { GATEWAY_MANAGED, SESSION_STATUS_WRITERS } from '../../wiring.js';
  * Akun deployer (indeks 0) menjadi admin semua kontrak. Operator gateway diambil dari
  * akun indeks `OPERATOR_ACCOUNT_INDEX` (bawaan 1). Pada jaringan dengan satu akun
  * (Sepolia), set `OPERATOR_ACCOUNT_INDEX=0`.
+ *
+ * Kontrak Hugo hanya membaca kontrak Ciko (tidak jadi session manager). `EscrowPool` dan
+ * `ReputationSBT` membaca verifier lewat `ActionGateway.verifier()`, dan keduanya dipasangi
+ * `IncentiveEngine` sebagai engine (sekali). Parameter di `hugo-params.ts`.
  *
  * Attestor `SimulatedZkVerifier` = alamat dari `ATTESTOR_PRIVATE_KEY`. Di lokal, bila kosong,
  * dipakai kunci dev deterministik yang sama dengan `zk-sim` (lihat `packages/shared/src/keys.ts`).
@@ -55,5 +61,27 @@ export default buildModule('IntegratedModule', (m) => {
     });
   }
 
-  return { ...ciko, zkVerifier, gateway };
+  // ---- Hugo (M6)
+  const hp = hugoParams();
+  const escrowPool = m.contract('EscrowPool', [
+    ciko.publicationSessions,
+    ciko.reviewerSelections,
+    ciko.reviewDecisions,
+    gateway,
+    hp.apcAmount,
+    hp.idleTimeout,
+  ]);
+  const reputationSBT = m.contract('ReputationSBT', [gateway, hp.decayRatePerDay, hp.claimStep]);
+  const incentiveEngine = m.contract('IncentiveEngine', [
+    escrowPool,
+    reputationSBT,
+    ciko.reviewSubmissions,
+    operator,
+    hp.sigmoidK,
+    hp.sigmoidX0,
+  ]);
+  m.call(escrowPool, 'setEngine', [incentiveEngine], { id: 'engine_EscrowPool' });
+  m.call(reputationSBT, 'setEngine', [incentiveEngine], { id: 'engine_ReputationSBT' });
+
+  return { ...ciko, zkVerifier, gateway, escrowPool, reputationSBT, incentiveEngine };
 });

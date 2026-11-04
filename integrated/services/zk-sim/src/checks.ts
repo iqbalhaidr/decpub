@@ -14,6 +14,9 @@ import {
   fieldCredentialDigest,
   identityCommitment,
   isRole,
+  noteBindNullifier,
+  noteCommitment,
+  noteRefundNullifier,
   type ZkKindValue,
 } from "@decpub/shared";
 import { isHex, pad, recoverMessageAddress, type Address, type Hex } from "viem";
@@ -33,6 +36,12 @@ export class ZkCheckError extends Error {
 export interface ChainReader {
   /** Apakah commitment identitas terdaftar di `PermanentAccounts`. */
   isIdentityRegistered(commitment: Hex): Promise<boolean>;
+  /** `EscrowPool.noteDeposited`. Tidak ada bila EscrowPool tidak terkonfigurasi (jenis note menjawab 501). */
+  isNoteDeposited?(commitment: Hex): Promise<boolean>;
+  /** `EscrowPool.nullifierUsed` (ikat dan refund berbagi ruang nama). */
+  isNullifierUsed?(nullifier: Hex): Promise<boolean>;
+  /** Nullifier ikat note yang terikat ke sesi (`EscrowPool.escrows`), atau null bila sesi belum punya escrow. */
+  escrowBindNullifier?(sessionId: Hex): Promise<Hex | null>;
 }
 
 export interface CheckContext {
@@ -170,10 +179,67 @@ const checkAssignment: Checker = async (witnessRaw, signals, ctx) => {
   }
 };
 
+function needNoteChain(ctx: CheckContext): Required<Pick<ChainReader, "isNoteDeposited" | "isNullifierUsed" | "escrowBindNullifier">> {
+  const { isNoteDeposited, isNullifierUsed, escrowBindNullifier } = ctx.chain;
+  if (!isNoteDeposited || !isNullifierUsed || !escrowBindNullifier) {
+    throw new ZkCheckError("ESCROW_NOT_CONFIGURED", "zk-sim tidak terhubung ke EscrowPool", 501);
+  }
+  return { isNoteDeposited, isNullifierUsed, escrowBindNullifier };
+}
+
+/**
+ * NOTE_BIND (P02): pemilik note yang sudah disetor mengikatnya ke sesi.
+ * Witness: noteSecret. Sinyal publik: [sessionId, nullifier].
+ * Yang dibuktikan: nullifier turunan dari rahasia note, note ada di pool, dan belum dibelanjakan.
+ * Sesi dan rahasia tidak pernah muncul bersamaan on-chain (hanya nullifier).
+ */
+const checkNoteBind: Checker = async (witnessRaw, signals, ctx) => {
+  if (signals.length !== 2) bad("NOTE_BIND butuh 2 sinyal publik");
+  const w = asRecord(witnessRaw, "witness");
+  if (!isBytes32(w.noteSecret)) bad("witness.noteSecret harus bytes32 hex");
+  const chain = needNoteChain(ctx);
+  const [, nullifier] = signals;
+  if (noteBindNullifier(w.noteSecret).toLowerCase() !== nullifier.toLowerCase()) {
+    throw new ZkCheckError("NULLIFIER_MISMATCH", "nullifier bukan turunan rahasia note ini");
+  }
+  if (!(await chain.isNoteDeposited(noteCommitment(w.noteSecret)))) {
+    throw new ZkCheckError("NOTE_NOT_FOUND", "note dari rahasia ini tidak ada di pool");
+  }
+  if (await chain.isNullifierUsed(nullifier)) {
+    throw new ZkCheckError("NOTE_ALREADY_SPENT", "note ini sudah dibelanjakan");
+  }
+};
+
+/**
+ * NOTE_REFUND (P03/P05/timeout): pemilik note yang terikat ke sesi meminta refund ke alamat baru.
+ * Witness: noteSecret. Sinyal publik: [sessionId, recipient, nullifier].
+ * Yang dibuktikan: rahasia ini memang pemilik note yang terikat ke sesi tersebut (nullifier ikatnya
+ * cocok dengan yang tercatat di EscrowPool), nullifier refund turunan dari rahasia dan sesi,
+ * dan penerima terikat pada bukti. Boleh-tidaknya refund diputuskan kontrak dari keadaan sesi.
+ */
+const checkNoteRefund: Checker = async (witnessRaw, signals, ctx) => {
+  if (signals.length !== 3) bad("NOTE_REFUND butuh 3 sinyal publik");
+  const w = asRecord(witnessRaw, "witness");
+  if (!isBytes32(w.noteSecret)) bad("witness.noteSecret harus bytes32 hex");
+  const chain = needNoteChain(ctx);
+  const [sessionId, recipientWord, nullifier] = signals;
+  const recipient = signalAddress(recipientWord);
+  if (!recipient || /^0x0+$/.test(recipient)) bad("sinyal penerima bukan alamat yang sah");
+
+  const bound = await chain.escrowBindNullifier(sessionId);
+  if (!bound || bound.toLowerCase() !== noteBindNullifier(w.noteSecret).toLowerCase()) {
+    throw new ZkCheckError("NOT_NOTE_OWNER", "rahasia ini bukan pemilik note yang terikat ke sesi tersebut");
+  }
+  if (noteRefundNullifier(w.noteSecret, sessionId).toLowerCase() !== nullifier.toLowerCase()) {
+    throw new ZkCheckError("NULLIFIER_MISMATCH", "nullifier refund tidak sesuai");
+  }
+  if (await chain.isNullifierUsed(nullifier)) {
+    throw new ZkCheckError("NOTE_ALREADY_SPENT", "refund untuk note ini sudah dipakai");
+  }
+};
+
 /** Jenis yang belum punya pemeriksa, beserta milestone yang mengisinya. */
 const PENDING: Partial<Record<ZkKindValue, string>> = {
-  [ZkKind.NoteBind]: "M6",
-  [ZkKind.NoteRefund]: "M6",
   [ZkKind.ReputationBucket]: "M7",
   [ZkKind.ReputationClaim]: "M7",
   [ZkKind.SelectiveDisclosure]: "M8",
@@ -183,6 +249,8 @@ const CHECKERS: Partial<Record<ZkKindValue, Checker>> = {
   [ZkKind.Ephemeral]: checkEphemeral,
   [ZkKind.Assignment]: checkAssignment,
   [ZkKind.AssignmentOwnership]: checkAssignmentOwnership,
+  [ZkKind.NoteBind]: checkNoteBind,
+  [ZkKind.NoteRefund]: checkNoteRefund,
 };
 
 export const SUPPORTED_KINDS = Object.keys(CHECKERS).map(Number) as ZkKindValue[];

@@ -54,3 +54,10 @@ export type CikoContract = (typeof CIKO_CONTRACTS)[number];
 
 /** Kontrak baru M2, di luar sembilan kontrak Ciko. */
 export const INTEGRATED_CONTRACTS = ['SimulatedZkVerifier', 'ActionGateway'] as const;
+
+/**
+ * Kontrak Hugo (M6). Tidak memakai `setSessionManager`: mereka hanya MEMBACA kontrak Ciko.
+ * Izinnya: `EscrowPool.engine` dan `ReputationSBT.engine` = `IncentiveEngine` (sekali pasang),
+ * `IncentiveEngine.operator` = operator. Parameter di `hugo-params.ts`.
+ */
+export const HUGO_CONTRACTS = ['EscrowPool', 'ReputationSBT', 'IncentiveEngine'] as const;

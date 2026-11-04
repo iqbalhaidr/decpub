@@ -18,7 +18,7 @@
     "test:contracts": "npm run test -w contracts",
     "storage": "npm run start -w services/storage-sim",
     "test:storage": "npm run test -w packages/shared && npm run test -w services/storage-sim",
-    "typecheck": "npm run typecheck -w packages/shared && npm run typecheck -w services/storage-sim && npm run typecheck -w services/zk-sim && npm run typecheck -w server",
+    "typecheck": "npm run typecheck -w packages/shared && npm run typecheck -w packages/incentive-core && npm run typecheck -w services/storage-sim && npm run typecheck -w services/zk-sim && npm run typecheck -w server",
     "demo:m1": "node --import tsx scripts/milestones/m1.ts",
     "zk": "npm run start -w services/zk-sim",
     "test:zk": "npm run test -w services/zk-sim",
@@ -27,10 +27,12 @@
     "demo:m3": "node --import tsx scripts/milestones/m3.ts",
     "demo:m4": "node --import tsx scripts/milestones/m4.ts",
     "demo:m5": "node --import tsx scripts/milestones/m5.ts",
+    "demo:m6": "node --import tsx scripts/milestones/m6.ts",
     "server": "npm run start -w server",
     "test:server": "npm run test -w server",
     "test:shared": "npm run test -w packages/shared",
-    "test": "npm run test:contracts && npm run test:storage && npm run test:zk && npm run test:server"
+    "test": "npm run test:contracts && npm run test:storage && npm run test:incentive && npm run test:zk && npm run test:server",
+    "test:incentive": "npm run test -w packages/incentive-core"
   },
   "engines": {
     "node": ">=22"

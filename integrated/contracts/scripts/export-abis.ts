@@ -26,6 +26,9 @@ const CONTRACTS: Record<string, string> = {
   ReviewDecisions: 'ciko',
   SimulatedZkVerifier: 'zk',
   ActionGateway: 'gateway',
+  EscrowPool: 'hugo',
+  IncentiveEngine: 'hugo',
+  ReputationSBT: 'hugo',
 };
 
 let body =

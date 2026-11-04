@@ -4,7 +4,7 @@ Diperbarui di akhir setiap sesi.
 
 ## Terakhir diperbarui
 
-2026-11-04, sesi M5.
+2026-11-05, sesi M6.
 
 ## Selesai
 
@@ -71,9 +71,30 @@ Diperbarui di akhir setiap sesi.
   - **Tes:** `npm test` lulus seluruhnya: kontrak 191, shared 22, storage-sim 19, zk-sim 19, **server 90** (+33: `m5.test.ts` 31 untuk ronde, pemilihan abu-abu/Minor/Major/pengganti, batas 10, `closePhase`, `RevisionService`, repositori; +2 HTTP). `npm run typecheck` bersih. Regresi `demo:m1`-`demo:m4` dan `check-wiring` (60/60) tetap lulus.
   - Klien skrip: `Member.intakeRevision/submitRevision`; data commit tertunda kini berkunci sesi+slot (satu orang punya beberapa ronde di sesi yang sama; frontend M11 harus sama). Pustaka alur bersama `scripts/lib/flow.ts` (dipakai M12).
 
+- **M6 selesai.** Semua kriteria terpenuhi dan dijalankan sendiri (`npm run demo:m6`, node Hardhat sungguhan, zk-sim sungguhan lewat HTTP, tanpa mock; setelah dua perbaikan kecil pada skripnya sendiri dijalankan 3 kali berturut-turut pada node yang sama, semuanya lulus):
+  - **Kontrak** (`contracts/contracts/hugo/`, solc 0.8.28, tanpa viaIR, tanpa stack-too-deep):
+    - `EscrowPool` (dipecah dari `createBatch` Hugo): `deposit(noteCommitment)` nominal tetap (APC 0,01 ETH, D6), `bindNote(sesi, nullifier, bukti NoteBind)`, `refund(sesi, alamatBaru, nullifier, bukti NoteRefund)`, `creditRewards` (hanya engine, jumlah wajib tepat sama dengan escrow), `claimReward(sesi, pseudonim, alamatBaru, tanda tangan EIP-712)`. `refundable` dan `distributable` dihitung murni dari keadaan kontrak Ciko, saling lepas: refund bila belum ada keputusan dan (Rejected tanpa batch penelaah, atau macet > `idleTimeout`); dibagikan bila ada keputusan dan (Accepted/Published/Rejected, atau macet). "Macet" = `updatedAt` sesi lebih lama dari `idleTimeout` (90 hari). Penjaga solvabilitas: ikatan tidak boleh melebihi setoran (`unboundNotes`). Tanpa `receive()`/fallback.
+    - `IncentiveEngine`: `_topsis`, `_sigmoid`, `_sqrt` Hugo dipertahankan tanpa perubahan; `executeDistribution(DistributionInput)` (struct, supaya tidak stack-too-deep) hanya operator, berbasis `sessionId`, baris matriks = pseudonim yang `hasReveal` (D3), jumlah bobot tepat 1e18, nilai matriks <= 1e18, 1-10 baris (D2), tanpa pseudonim ganda, sisa pembulatan masuk ke sigmoid tertinggi, hash laporan QoS dan hash kebijakan dicatat. Engine tidak memegang dana.
+    - `ReputationSBT`: kunci `bytes32 reputationId`; engine hanya menambah kredit agregat (`accrue`); mint lewat `claimReputation(Claim[])` bertanda bukti `ReputationClaim` (nullifier, kelipatan 0,25, total klaim <= total kredit, dapat digabung relayer dalam satu transaksi); decay tidak bisa dihindari (lihat Temuan); `setDecayRate` kini terjangkau (admin).
+    - `IVerifierSource`: Hugo membaca verifier lewat `ActionGateway.verifier()`, jadi `setVerifier` tetap satu tempat.
+  - **Wiring.** `Integrated.ts` men-deploy tiga kontrak Hugo dan memasang `setEngine`; parameter satu sumber di `contracts/hugo-params.ts` (`APC_AMOUNT_WEI`, `ESCROW_IDLE_TIMEOUT_SECONDS` menimpa). `check-wiring`: **83/83 lulus** (23 baru: engine, pool, SBT, verifier, operator, parameter). Diuji negatif: `APC_AMOUNT_WEI=5` membuat pemeriksa gagal (82/83, kode 1).
+  - **`packages/incentive-core`** (baru, direncanakan M7 tetapi dibutuhkan tes D1): salinan `normalization`, `weighting/{bwm,ecwm,fusion}`, `topsis`, `sigmoid` Hugo tanpa perubahan rumus, ditambah `onchain.ts` (konversi ke 1e18, `weightsToE18` menjamin jumlah tepat 1e18, **model referensi bilangan bulat** yang meniru `_topsis`/`_sigmoid`/pembagian kontrak persis), `datasets.ts` (D1-D3), `presets.ts`, `pipeline.ts`. Tes (8) mereproduksi Lampiran A (R1 0,7056 ETH off-chain) dan Lampiran B (R1 0,6453 ETH) **tanpa EVM**.
+  - **`packages/shared`**: `notes.ts` (rahasia note, `noteCommitment`, nullifier ikat dan refund, domain dan `signClaimReward`, nullifier klaim reputasi), `signals.noteBind/noteRefund/reputationClaim`, ABI 14 kontrak.
+  - **`services/zk-sim`**: pemeriksa witness `NOTE_BIND` (rahasia note menurunkan nullifier, note ada di pool, belum dibelanjakan) dan `NOTE_REFUND` (rahasia pemilik note yang terikat ke sesi itu, nullifier refund turunan rahasia dan sesi, penerima sah). Tanpa `EscrowPool` terkonfigurasi: 501 `ESCROW_NOT_CONFIGURED`. Sisa yang 501: `ReputationBucket` dan `ReputationClaim` (M7), `SelectiveDisclosure` (M8).
+  - **Tes:** `npm test` lulus seluruhnya: kontrak **252** (191 + 17 `EscrowPool`, 25 `IncentiveEngine`, 17 `ReputationSBT`, 1 gas, +1 untuk `hugo-helpers.ts` yang dihitung `node:test` sebagai berkas; ini mengonfirmasi dugaan M2 tentang selisih 1), shared 22, **incentive-core 8**, storage-sim 19, **zk-sim 30** (+11), server 90. `npm run typecheck` bersih. Regresi `demo:m1`-`demo:m5` lulus terhadap deployment baru yang sudah memuat kontrak Hugo.
+  - **Pemetaan tes Hugo (23 kasus `IncentiveEngine.test.ts` + 9 gas):** deployment (2), distribusi (execute, double, non-owner, ETH ke penelaah, mint SBT, no-show dikecualikan, ranking vs off-chain, n=2, n=10), SBT (mint, akumulasi, decay, reset timer, trigger, tanpa decay), perbandingan on/off-chain: semuanya dipetakan (komentar `Hugo:` di tiap tes), dengan penyesuaian rancangan. Empat tes `createBatch` Hugo (escrow 0, >10 penelaah, 0 penelaah) tidak ada padanan karena `createBatch` dibuang; padanannya: `deposit` hanya menerima tepat APC, dan n=0 dan n=11 ditolak engine. Tes "all no-show refund to author" Hugo menjadi timeout refund (tes `EscrowPool`). `gas.test.ts` diport (`Gas.test.ts`, n=2..10).
+  - **Hasil `demo:m6`** (semua OK, 101 transaksi dipindai):
+    - A. Siklus penuh D1 di chain: setor, ikat, 5 penelaah Accept, distribusi. Imbalan skala 2 ETH = **R1 0,6453 / R2 0,4888 / R3 0,1053 / R4 0,5814 / R5 0,1793** dan reputasi 0,8729 / 0,6612 / 0,1424 / 0,7865 / 0,2425, **sama dengan Tabel B.2 Hugo sampai 4 desimal**; peringkat R1 > R4 > R2 > R5 > R3. Klaim ke 5 alamat baru (saldo awal 0), seluruh APC sampai tanpa sisa; reputasi diklaim atas `reputationId`.
+    - B. Refund dini (P03 Reject): APC penuh ke alamat baru; sebelum ditolak, refund kedua, dan pengalihan penerima oleh relayer ditolak. C. Timeout refund: ditolak sebelum 90 hari, berhasil sesudahnya. D. Revisi macet: dana ditolak dibagikan sebelum timeout, dibagikan ke 3 penelaah sesudahnya.
+    - E. Ditolak on-chain: replay nullifier ikat (`NullifierAlreadyUsed`), bobot +1/-1 wei (`WeightsMustSumToOne`), matriks 1e18+1 (`InvalidMatrixValue`), pseudonim tanpa reveal (`PseudonymNotRevealed`), pseudonim ganda, bukan operator, `creditRewards` langsung, bukti bertanda tangan bukan attestor (`InvalidProof`), distribusi kedua, refund setelah ada keputusan, klaim dua kali, penerima dialihkan, pseudonim lain mengklaim; dari zk-sim: note tak pernah disetor, note terpakai, bukan pemilik note.
+    - F. Decay: reputasi dipicu `triggerDecay` tiap 12 jam selama 5 hari = yang dibiarkan = 0,6779 (bukan 0,75).
+    - G. Pemindaian 101 transaksi: tanpa rahasia note, alamat penyetor, atau rahasia/commitment identitas; commitment note hanya di transaksi setor; transaksi refund dan mint tanpa penyetor, note, pseudonim, atau id sesi.
+  - **Uji mutasi** (karena hasil lulus pada percobaan pertama): kontrak sengaja dirusak dan tes harus gagal. Tanpa cek `hasReveal`: 3 tes gagal. Refund walau ada keputusan: 2 tes gagal. `triggerDecay` mereset penanda waktu ke sekarang (perilaku Hugo): 3 tes gagal. Mutasi pertama yang saya tulis (mereset di `_settle`) ternyata tidak mereproduksi bug Hugo dan hanya ditangkap satu tes; itu sebabnya mutasi kedua dibuat setia ke kode Hugo.
+  - **Gas** (jaringan Hardhat, optimizer 200 runs seperti Hugo): `executeDistribution` n=2..10 = 350k, 411k, 505k, **599k (n=5; Hugo 603.214 untuk TOPSIS + sigmoid + transfer + mint)**, 679k, 759k, 839k, 920k, 1.001k; pada demo 601.619. `deposit` 73k, `bindNote` 187k, `claimReward` 74k, `claimReputation` 117k, `refund` 146k. Biaya per penelaah pindah dari satu transaksi operator ke `claimReward` yang dibayar relayer.
+
 ## Tersisa
 
-Milestone berikutnya: **M6, kontrak escrow dan insentif** (`EscrowPool`, `IncentiveEngine`, `ReputationSBT`, port tes Hugo). M6 sampai M13 belum dikerjakan.
+Milestone berikutnya: **M7, insentif di backend** (`SimulatedQoSProvider`, kebijakan bobot per jurnal dikunci saat sesi dibuat, q1 dari timestamp on-chain, q4 dari bukti tingkat, penyelesaian otomatis, `ESCROW_REQUIRED=true`, refund di jalur P03/P05, klaim imbalan dan reputasi per epoch, timeout otomatis). M7 sampai M13 belum dikerjakan.
 
 
 ## Temuan di lapangan (M0)
@@ -176,16 +197,57 @@ Tidak ada yang bertentangan dengan `arsitektur.md` atau `analisis/`. Keputusan A
 - Pendaftar revisi memakai JWT pemilik naskah (seperti pengajuan awal) sekaligus tanda tangan pseudonim; server tahu akun mana yang merevisi, tidak tahu pseudonim mana yang dipakai selain yang sudah ada di chain.
 - `pkill -f` pada nama proses Hardhat mematikan shell sendiri (sama seperti catatan M3); hentikan node lewat PID.
 
+## Temuan di lapangan (M6)
+
+Tidak ada yang bertentangan dengan `arsitektur.md` atau `analisis/` pada tingkat desain. Dua hal yang tadinya inferensi analisis kini terbukti, satu hal bergeser dari rencana, dan ada tiga keputusan yang saya minta dari Anda.
+
+**Terbukti (sebelumnya inferensi di `analisis/hugo.md`):**
+
+- **Decay Hugo bisa dihindari.** Kontrak Hugo asli tidak dijalankan, tetapi mutasi kontrak baru yang mereset penanda waktu di `triggerDecay` (perilaku Hugo) membuat tiga tes penghindaran gagal, dan versi yang diperbaiki lulus. Perbaikan: penanda hanya maju sebesar hari penuh yang sudah dipotong, sisa jam tidak hilang.
+- **Sigmoid kontrak bukan logistik, dan angka Lampiran B memakainya.** Model bilangan bulat TypeScript dan EVM menghasilkan angka identik bit demi bit untuk n = 1, 2, 4, 7, 10, dan sama dengan Tabel B.2 (R1 0,6453). Pratinjau off-chain logistik Hugo memberi 0,7056 (Lampiran A). Hitungan ROI Sybil 0,41 (analisis hugo.md bagian 4) **belum** diukur; kini bisa lewat `distributeFixed` pada D3.
+- Hugo tidak pernah memvalidasi bobot dan rentang matriks; sekarang ditolak dan diuji (bobot +/-1 wei, matriks 1e18+1).
+
+**Bergeser dari rencana (tanpa mengubah desain):**
+
+- **`packages/incentive-core` dibuat di M6, bukan M7.** Tes D1 dan Lampiran B butuh normalisasi, BWM, ECWM, dan fusi. Isinya salinan middleware Hugo tanpa perubahan rumus. `QoSProvider`, preset per jurnal, dan satu sumber preset BWM tetap M7 (preset yang disalin: vektor `eval-datasets.ts`, sama dengan angka laporan; lihat arsitektur 6.2).
+- **zk-sim mengisi `NOTE_BIND` dan `NOTE_REFUND` di M6**, supaya demo refund tidak menandatangani langsung dengan kunci attestor. `REPUTATION_CLAIM` belum: demo dan tes M6 menandatanganinya langsung dengan attestor (diberi label di keluaran). Yang akan diperiksa M7: reputationId dari secret, pseudonim turunan, kredit di `IncentiveEngine`.
+- **Optimizer 200 runs diaktifkan** di `hardhat.config.ts` (sama dengan Hugo). Tanpa itu `executeDistribution` n=5 menjadi 884k gas dan tidak sebanding dengan Lampiran B. Mengubah kompilasi seluruh proyek; 252 tes kontrak dan semua demo tetap lulus.
+
+**Keputusan Anda (2026-11-05), semuanya menerima kondisi sekarang:** butir 1 opsi (a), butir 2 cukup dengan `setOperator`, butir 3 opsi (a). Teks asli pertanyaan dipertahankan di bawah sebagai catatan alasan. Batasannya sudah ditulis di `arsitektur.md` bagian 13.
+
+
+1. **Operator menentukan daftar pseudonim `executeDistribution`.** Kontrak menolak pseudonim tanpa reveal, tetapi tidak memaksa SEMUA yang reveal ikut. Operator yang berkolusi dengan satu penelaah bisa memasukkan hanya dia, dan dia menerima 100% (satu peserta selalu 100%). Ini batasan yang sama dengan daftar `decideBatch` Ciko (arsitektur bagian 13), tetapi di sini menyangkut uang. Opsi: (a) terima dan tulis di bagian 13 (sekarang); (b) paksa jumlah pseudonim = jumlah reveal yang terhitung di keputusan ronde (rumit untuk zona abu-abu dan beberapa ronde karena `reviewerCount` batch berikutnya mencakup batch sebelumnya, dan `ReviewSubmissions` tidak punya enumerasi); (c) tambahkan hitung reveal per sesi di gateway. Saya sarankan (a) untuk sekarang, (c) bila skripsi Anda menyasar model ancaman operator tidak jujur.
+2. **Dana terkunci bila operator tidak pernah mengeksekusi saat sudah ada keputusan.** Kasus tanpa keputusan sudah ditutup timeout refund, tetapi bila keputusan ada dan operator hilang, tidak ada jalur tanpa operator, jadi klaim arsitektur "dana terkunci bila operator tidak mengeksekusi ikut ditutup" hanya separuh benar. Opsi: (a) terima (sekarang); (b) setelah timeout, siapa pun boleh membagi rata ke pseudonim yang reveal (butuh enumerasi, terkait butir 1); (c) admin bisa mengganti operator (sudah ada: `setOperator`), jadi kehilangan operator dapat dipulihkan; saya anggap (c) cukup untuk demo.
+3. **`Incomplete` ditutup dan di-refund** (arsitektur bagian 2: "sesi ditutup, APC di-refund"). Kontrak Ciko tidak punya penutupan, sehingga refund untuk sesi `Incomplete` baru mungkin setelah macet 90 hari. Opsi: (a) biarkan (sekarang); (b) izinkan refund langsung dari status `Incomplete` (penulis menyerah). (b) satu baris di `EscrowPool.refundable`, tetapi sesi Ciko-nya tetap hidup dan bisa dilanjutkan tanpa escrow; M7 harus menanganinya.
+
+**Keputusan kecil yang saya ambil sendiri (mohon dikoreksi):**
+
+- **Pool note nominal tetap dengan satu escrow per sesi.** `bindNote` hanya untuk sesi yang ada dan belum Accepted/Rejected/Published; satu note satu sesi (nullifier), satu sesi satu note. Pembuktian kepemilikan note sepenuhnya di attestor (simulasi); kontrak hanya menjaga solvabilitas. Attestor yang jahat bisa mengikat note milik orang lain; itu batasan simulasi.
+- **Rahasia note hilang = APC hilang.** Tidak ada jalur penyelamatan admin, sengaja (admin yang bisa menarik dana akan merusak model kepercayaan). Frontend M10 harus mengekspor rahasia note.
+- **`refund` dan `claimReward` boleh dikirim siapa saja** (seperti keputusan M2): bukti dan tanda tangan mengikat penerima. `bindNote` juga.
+- **Klaim penelaah per (sesi, pseudonim) mengambil seluruh kredit sesi itu**, karena pseudonim hanya dipakai satu sesi. `claimReward` memuat `sessionId` untuk memilih kredit.
+- **Event `RewardCredited` dan `claimReward` menampilkan pseudonim dan jumlahnya secara publik**, sengaja (pseudonim sudah publik sejak reveal). Yang diputus adalah tautan pseudonim ke alamat (klaim ke alamat baru) dan ke `reputationId` (mint tanpa pseudonim, per klaim).
+- **Klaim reputasi dibatasi: total klaim <= total kredit agregat dan jumlah berkelipatan 0,25.** Kontrak tidak bisa tahu klaim ini milik pseudonim mana; pemeriksaan itu di attestor (M7). Konsekuensi rancangan yang perlu diputuskan di M7: kredit kecil (mis. 0,14 atau 0,24) dibulatkan ke bawah menjadi 0 dan tidak pernah bisa diklaim; pembulatan ke atas bisa melampaui kredit dan hanya dijaga oleh batas agregat. Arsitektur bagian 6.4 hanya menyebut "dibulatkan ke kelipatan 0,25".
+- **Sisa pembulatan ETH masuk ke penelaah dengan sigmoid tertinggi** (di Hugo tertahan selamanya), supaya kredit tepat sama dengan escrow.
+- **Waktu macet dihitung dari `updatedAt` sesi**, yang diubah setiap perubahan status dan revisi. Pihak yang bisa mengubahnya hanya operator dan tanda tangan pseudonim; penulis tidak bisa menunda tanpa batas.
+- **Refund oleh timeout tidak menutup sesi Ciko.** Kontrak Hugo tidak bisa mengubah status. Bila sesi terus berjalan sampai keputusan setelah refund, penelaah tidak dibayar (`NotDistributable`, state escrow `Refunded`). Server (M7) harus menutup sesi dan berhenti memajukannya setelah refund.
+- **Sesi `Rejected` yang punya batch tetapi tanpa keputusan** (tidak terjangkau alur normal) hanya bisa di-refund lewat timeout.
+- **Revisi macet memakai `idleTimeout` yang sama (90 hari)**, bukan timeout terpisah.
+- **Hugo "pratinjau off-chain disamakan" (D5):** tersedia `sigmoidOnChainFloat` dan `distributeOnChainFloat` (cocok dengan model bilangan bulat sampai 1e-9). Pratinjau server M7 harus memakainya, bukan `distribute` logistik.
+- **`demo:m6` memajukan jam chain > 180 hari.** Ini permanen untuk node yang sedang berjalan; semua demo lain tetap lulus sesudahnya (diuji), tetapi q1 (M7) dihitung dari timestamp, jadi jalankan ulang node bila perlu.
+
 ## Masalah terbuka
 
-- Kode Hugo dan Roihan belum pernah dijalankan (baru Ciko di M0). Tes Hugo dijalankan saat M6.
+- Kode Roihan belum pernah dijalankan. Kontrak Hugo asli tidak dijalankan; yang diuji adalah kontrak turunannya (M6). Pembandingan langsung dengan `Hugo/` asli (mis. `npm run test:contracts` Hugo) belum dilakukan; angka Lampiran B direproduksi dari data dan rumusnya.
 - Daftar `decideBatch` dan urutan fase telaah masih dijaga operator (batasan Ciko, arsitektur bagian 13). Gateway meneruskan apa adanya. Sejak M4 server menegakkan "Reveal setelah semua commit" dan "hanya yang reveal dihitung", tetapi kontrak tidak.
 - Penelaah yang tidak commit atau reveal kini bisa ditangani admin (`close-phase`, M5), tetapi tenggat otomatis dan timeout refund menunggu M7. Penelaah yang tidak mengikat penugasan dan editor yang tidak merespons belum punya jalur pengganti.
-- Tenggat otomatis untuk fase telaah yang macet (pengganti `close-phase` manual) dikerjakan di M7.
+- Tenggat otomatis untuk fase telaah yang macet (pengganti `close-phase` manual) dikerjakan di M7. Timeout dana di kontrak (M6) sudah ada, tetapi server belum menggerakkan sesi macet ke penutupan.
 - Dua keputusan terbuka di "Temuan di lapangan (M4)": tautan pseudonim di server saat pengikatan, dan pembuatan pseudonim yang tak dibatasi undangan.
 - `npm install` melaporkan kerentanan pada rantai dev; belum diperiksa (sama seperti M0).
-- Frontend/zk-sim: CORS zk-sim belum diatur (M10). Kebijakan bobot jurnal tersimpan tetapi belum dikunci ke sesi (M7). Refund APC pada Reject/Incomplete-ditutup/desk reject menunggu M6/M7 (jalur `Rejected` M5 sudah ada, dananya belum).
-- Kompatibilitas pragma `^0.8.24` kontrak Hugo/Roihan dengan solc 0.8.28 belum diuji (M6, M8).
+- Frontend/zk-sim: CORS zk-sim belum diatur (M10). Kebijakan bobot jurnal tersimpan tetapi belum dikunci ke sesi (M7). Kontrak escrow ada (M6), tetapi server belum memakainya: `ESCROW_REQUIRED=false`, tidak ada setor/ikat/refund/distribusi dari server sampai M7. Refund pada Reject/desk reject kini mungkin di kontrak; penutupan sesi `Incomplete` dan sesi setelah refund menunggu M7.
+- Tiga keputusan M6 sudah dijawab (terima kondisi sekarang), bukan lagi terbuka. Refund `Incomplete` tetap hanya lewat timeout; penutupan sesi `Incomplete` oleh server menunggu M7.
+- Witness `REPUTATION_CLAIM` dan `REPUTATION_BUCKET` belum diperiksa zk-sim (M7); aturan pembulatan klaim reputasi belum diputuskan.
+- Kompatibilitas pragma `^0.8.24` kontrak Roihan dengan solc 0.8.28 belum diuji (M8). Kontrak Hugo ditulis ulang dengan pragma `^0.8.28` dan dikompilasi di M6.
 - M13 butuh RPC Sepolia, kunci deployer baru, dan ETH testnet dari pengguna.
 
 ## Cara menjalankan
@@ -194,8 +256,8 @@ Tidak ada yang bertentangan dengan `arsitektur.md` atau `analisis/`. Keputusan A
 cd integrated
 npm install
 npm run chain            # terminal 1, tetap hidup
-npm run deploy:local     # terminal 2 (9 kontrak Ciko + verifier + gateway)
-npm run check-wiring     # 60 pemeriksaan
+npm run deploy:local     # terminal 2 (9 kontrak Ciko + verifier + gateway + EscrowPool, ReputationSBT, IncentiveEngine)
+npm run check-wiring     # 83 pemeriksaan
 npm run test:contracts
 
 npm run storage          # M1: simulator storage di http://127.0.0.1:8081, tetap hidup
@@ -213,6 +275,9 @@ npm run test:server      # tes server
 npm run demo:m3          # demo/regresi M3 (butuh chain + deploy:local; menyalakan storage, zk, server sendiri)
 npm run demo:m4          # demo/regresi M4: P05-P08 jalur diterima sampai Published (prasyarat sama)
 npm run demo:m5          # demo/regresi M5: revisi Minor/Major, zona abu-abu, desk reject/revisi desk, no-show (prasyarat sama)
+
+npm run test:incentive   # M6: incentive-core (pipeline Hugo, model referensi bilangan bulat)
+npm run demo:m6          # demo/regresi M6: escrow, refund, timeout, D1 = Lampiran B, klaim, decay (prasyarat sama; zk-sim nyala sendiri; memajukan jam chain > 180 hari)
 ```
 
 Target akhir: `cd integrated && npm install && npm run demo`.

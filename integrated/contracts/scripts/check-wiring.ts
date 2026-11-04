@@ -1,12 +1,15 @@
 /**
  * Memastikan semua izin antar kontrak terpasang benar pada deployment yang berjalan.
  * Membaca `deployments/<jaringan>.json`, lalu memeriksa lewat RPC:
- *  - 9 kontrak Ciko + SimulatedZkVerifier + ActionGateway punya kode,
+ *  - 9 kontrak Ciko + SimulatedZkVerifier + ActionGateway + 3 kontrak Hugo punya kode,
  *  - admin tiap kontrak = deployer,
  *  - ActionGateway adalah session manager di 8 kontrak Ciko (`GATEWAY_MANAGED`),
  *  - operator (server) BUKAN session manager di kontrak Ciko mana pun,
  *  - 3 kontrak penulis status adalah session manager di PublicationSessions,
  *  - gateway: operator, verifier, dan 8 alamat kontrak Ciko benar; verifier: attestor benar,
+ *  - Hugo: EscrowPool/ReputationSBT/IncentiveEngine saling terhubung (engine, pool, SBT, operator),
+ *    membaca kontrak Ciko dan verifier yang benar, parameternya = `hugo-params.ts`,
+ *    admin tiap kontrak Hugo = deployer (dicek bersama kontrak lain di atas),
  *  - sebaliknya: akun acak BUKAN session manager.
  *
  * Keluar dengan kode 1 bila ada yang salah.
@@ -17,7 +20,8 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { createPublicClient, http, parseAbi, type Address } from 'viem';
 import { attestorAddress } from '@decpub/shared';
-import { CIKO_CONTRACTS, GATEWAY_MANAGED, INTEGRATED_CONTRACTS, SESSION_STATUS_WRITERS } from '../wiring.js';
+import { CIKO_CONTRACTS, GATEWAY_MANAGED, HUGO_CONTRACTS, INTEGRATED_CONTRACTS, SESSION_STATUS_WRITERS } from '../wiring.js';
+import { hugoParams } from '../hugo-params.js';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const network = process.argv[2] ?? process.env.NETWORK ?? 'localhost';
@@ -68,7 +72,7 @@ const stranger = accounts[accounts.length - 1];
 console.log(`Jaringan ${network}, RPC ${rpcUrl}`);
 console.log(`deployer ${deployer}\noperator ${operator}\n`);
 
-for (const name of [...CIKO_CONTRACTS, ...INTEGRATED_CONTRACTS]) {
+for (const name of [...CIKO_CONTRACTS, ...INTEGRATED_CONTRACTS, ...HUGO_CONTRACTS]) {
   const address = contracts[name];
   if (!address) {
     expect(false, `${name} ada di deployments/${network}.json`);
@@ -78,7 +82,7 @@ for (const name of [...CIKO_CONTRACTS, ...INTEGRATED_CONTRACTS]) {
   expect(!!code && code !== '0x', `${name} punya kode di ${address}`);
 }
 
-for (const name of [...CIKO_CONTRACTS, ...INTEGRATED_CONTRACTS]) {
+for (const name of [...CIKO_CONTRACTS, ...INTEGRATED_CONTRACTS, ...HUGO_CONTRACTS]) {
   const address = contracts[name];
   if (!address) continue;
   const admin = await client.readContract({ address, abi, functionName: 'admin' });
@@ -142,6 +146,62 @@ expect(
   attestor.toLowerCase() === attestorAddress(process.env).toLowerCase(),
   'SimulatedZkVerifier.attestor = alamat dari ATTESTOR_PRIVATE_KEY',
 );
+
+// ---- Hugo (M6)
+const hp = hugoParams(process.env);
+const addrOf = (n: string) => (contracts as Record<string, string>)[n].toLowerCase();
+const poolAbi = parseAbi([
+  'function engine() view returns (address)',
+  'function publicationSessions() view returns (address)',
+  'function reviewerSelections() view returns (address)',
+  'function reviewDecisions() view returns (address)',
+  'function verifierSource() view returns (address)',
+  'function apcAmount() view returns (uint256)',
+  'function idleTimeout() view returns (uint64)',
+]);
+const sbtAbi = parseAbi([
+  'function engine() view returns (address)',
+  'function verifierSource() view returns (address)',
+  'function decayRatePerDay() view returns (uint256)',
+  'function claimStep() view returns (uint256)',
+]);
+const engineAbi = parseAbi([
+  'function operator() view returns (address)',
+  'function escrowPool() view returns (address)',
+  'function reputationSBT() view returns (address)',
+  'function reviewSubmissions() view returns (address)',
+  'function sigmoidK() view returns (uint256)',
+  'function sigmoidX0() view returns (uint256)',
+]);
+const rd = <T extends readonly unknown[]>(address: Address, a: T, fn: string) =>
+  client.readContract({ address, abi: a as never, functionName: fn as never }) as Promise<unknown>;
+const eqAddr = async (address: Address, a: readonly unknown[], fn: string, want: string, label: string) =>
+  expect(String(await rd(address, a, fn)).toLowerCase() === want.toLowerCase(), label);
+const eqNum = async (address: Address, a: readonly unknown[], fn: string, want: bigint, label: string) =>
+  expect(BigInt((await rd(address, a, fn)) as bigint) === want, label);
+
+const { EscrowPool: pool, ReputationSBT: sbt, IncentiveEngine: engine } = contracts;
+if (pool && sbt && engine) {
+  await eqAddr(pool, poolAbi, 'engine', engine, 'EscrowPool.engine = IncentiveEngine');
+  await eqAddr(pool, poolAbi, 'publicationSessions', addrOf('PublicationSessions'), 'EscrowPool.publicationSessions = PublicationSessions');
+  await eqAddr(pool, poolAbi, 'reviewerSelections', addrOf('ReviewerSelections'), 'EscrowPool.reviewerSelections = ReviewerSelections');
+  await eqAddr(pool, poolAbi, 'reviewDecisions', addrOf('ReviewDecisions'), 'EscrowPool.reviewDecisions = ReviewDecisions');
+  await eqAddr(pool, poolAbi, 'verifierSource', gw, 'EscrowPool.verifierSource = ActionGateway');
+  await eqNum(pool, poolAbi, 'apcAmount', hp.apcAmount, `EscrowPool.apcAmount = ${hp.apcAmount} wei`);
+  await eqNum(pool, poolAbi, 'idleTimeout', hp.idleTimeout, `EscrowPool.idleTimeout = ${hp.idleTimeout} detik`);
+
+  await eqAddr(sbt, sbtAbi, 'engine', engine, 'ReputationSBT.engine = IncentiveEngine');
+  await eqAddr(sbt, sbtAbi, 'verifierSource', gw, 'ReputationSBT.verifierSource = ActionGateway');
+  await eqNum(sbt, sbtAbi, 'decayRatePerDay', hp.decayRatePerDay, 'ReputationSBT.decayRatePerDay = 0,02');
+  await eqNum(sbt, sbtAbi, 'claimStep', hp.claimStep, 'ReputationSBT.claimStep = 0,25');
+
+  await eqAddr(engine, engineAbi, 'operator', operator, 'IncentiveEngine.operator = operator');
+  await eqAddr(engine, engineAbi, 'escrowPool', pool, 'IncentiveEngine.escrowPool = EscrowPool');
+  await eqAddr(engine, engineAbi, 'reputationSBT', sbt, 'IncentiveEngine.reputationSBT = ReputationSBT');
+  await eqAddr(engine, engineAbi, 'reviewSubmissions', addrOf('ReviewSubmissions'), 'IncentiveEngine.reviewSubmissions = ReviewSubmissions');
+  await eqNum(engine, engineAbi, 'sigmoidK', hp.sigmoidK, 'IncentiveEngine.sigmoidK = 10');
+  await eqNum(engine, engineAbi, 'sigmoidX0', hp.sigmoidX0, 'IncentiveEngine.sigmoidX0 = 0,5');
+}
 
 console.log(`\n${checks - failures.length}/${checks} pemeriksaan lulus.`);
 if (failures.length) {

@@ -615,6 +615,9 @@ Yang dipertahankan: `next`, `react`, `react-dom`, `viem`, `axios`.
 | `reputationId` stabil | A1 | Aktivitas bisa ditautkan antar-epoch, tetapi tidak ke nama |
 | Korelasi waktu transaksi | A2 | Setor APC dan ikat sesi bisa dikorelasikan bila berdekatan |
 | Himpunan anonim demo kecil | Skala demo | Lap. Ciko hlm. 123 menganggap N di bawah 3 lemah |
+| Daftar pseudonim `executeDistribution` berasal dari operator | Keputusan M6 | Kontrak menolak pseudonim tanpa reveal, tetapi tidak memaksa semua yang reveal ikut. Operator yang berkolusi bisa memusatkan imbalan ke satu penelaah. Sama dengan batasan `decideBatch` |
+| Dana tertahan bila operator hilang setelah ada keputusan | Keputusan M6 | Tanpa keputusan: timeout refund. Dengan keputusan: pemulihan lewat `IncentiveEngine.setOperator` oleh admin |
+| Refund sesi `Incomplete` hanya lewat timeout | Keputusan M6 | Kontrak Ciko tidak punya penutupan sesi |
 | ZK adalah simulasi | Instruksi pengguna | Attestor melihat witness dan sifat zero-knowledge tidak ada. Nilainya ada pada bentuk alur dan interface |
 | Tanpa audit keamanan | Lingkup | Tidak layak produksi |
 

@@ -17,7 +17,11 @@ const app = createZkApp({
   chainId: deployments.chainId,
   verifier: contractAddress(deployments, "SimulatedZkVerifier"),
   issuer: process.env.ISSUER_ADDRESS ? (process.env.ISSUER_ADDRESS as `0x${string}`) : issuerAddress(),
-  chain: rpcChainReader(rpcUrl, contractAddress(deployments, "PermanentAccounts")),
+  chain: rpcChainReader(
+    rpcUrl,
+    contractAddress(deployments, "PermanentAccounts"),
+    deployments.contracts.EscrowPool ? contractAddress(deployments, "EscrowPool") : undefined,
+  ),
 });
 app.listen(port, host, () => {
   console.log(

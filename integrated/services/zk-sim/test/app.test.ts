@@ -14,8 +14,12 @@ import {
   deriveEphemeral,
   issueFieldCredential,
   devPrivateKey,
+  generateNoteSecret,
   generateSecret,
   identityCommitment,
+  noteBindNullifier,
+  noteCommitment,
+  noteRefundNullifier,
   issueRoleCredential,
   proofDigest,
   signals,
@@ -32,7 +36,16 @@ const SESSION_2 = ("0x" + "22".repeat(32)) as Hex;
 
 /** Anggota terdaftar di "chain" palsu. */
 const registered = new Set<string>();
-const chain = { isIdentityRegistered: async (c: Hex) => registered.has(c.toLowerCase()) };
+/** Pool note palsu: note yang disetor, nullifier terpakai, dan ikatan sesi -> nullifier ikat. */
+const notes = new Set<string>();
+const spent = new Set<string>();
+const bound = new Map<string, Hex>();
+const chain = {
+  isIdentityRegistered: async (c: Hex) => registered.has(c.toLowerCase()),
+  isNoteDeposited: async (c: Hex) => notes.has(c.toLowerCase()),
+  isNullifierUsed: async (n: Hex) => spent.has(n.toLowerCase()),
+  escrowBindNullifier: async (sid: Hex) => bound.get(sid.toLowerCase()) ?? null,
+};
 
 let server: Server;
 let base: string;
@@ -255,12 +268,36 @@ describe("zk-sim lainnya", () => {
     const res = await fetch(`${base}/prove`, {
       method: "POST",
       headers: { "content-type": "application/json" },
-      body: JSON.stringify({ kind: ZkKind.NoteBind, witness: {}, publicSignals: [SESSION] }),
+      body: JSON.stringify({ kind: ZkKind.ReputationBucket, witness: {}, publicSignals: [SESSION] }),
     });
     assert.equal(res.status, 501);
     const body = (await res.json()) as { error: string; message: string };
     assert.equal(body.error, "NOT_IMPLEMENTED");
-    assert.match(body.message, /M6/);
+    assert.match(body.message, /M7/);
+  });
+
+  it("note proofs answer 501 ESCROW_NOT_CONFIGURED when zk-sim has no EscrowPool", async () => {
+    const app = createZkApp({
+      attestorPrivateKey: ATTESTOR_KEY,
+      chainId: CHAIN_ID,
+      verifier: VERIFIER,
+      issuer: privateKeyToAccount(ISSUER_KEY).address,
+      chain: { isIdentityRegistered: async () => true },
+    });
+    const srv: Server = await new Promise((r) => {
+      const x = app.listen(0, "127.0.0.1", () => r(x));
+    });
+    try {
+      const p = new HttpZkProver(`http://127.0.0.1:${(srv.address() as AddressInfo).port}`);
+      const secret = generateNoteSecret();
+      await expectRejected(
+        p.prove(ZkKind.NoteBind, { noteSecret: secret }, signals.noteBind(SESSION, noteBindNullifier(secret))),
+        "ESCROW_NOT_CONFIGURED",
+        501,
+      );
+    } finally {
+      srv.close();
+    }
   });
 
   it("/verify accepts the issued proof and rejects tampered signals or foreign signatures", async () => {
@@ -314,6 +351,125 @@ describe("zk-sim lainnya", () => {
     const secrets = [m.secret, m.credential, wrong];
     for (const text of [...logged, ...outputs]) {
       for (const s of secrets) assert.equal(text.includes(s.slice(2)), false, "witness bocor ke log atau respons");
+    }
+  });
+});
+
+const RECIPIENT = "0x00000000000000000000000000000000000000b1" as const;
+
+function deposited() {
+  const secret = generateNoteSecret();
+  notes.add(noteCommitment(secret).toLowerCase());
+  return secret;
+}
+
+describe("zk-sim NOTE_BIND", () => {
+  it("proves a deposited, unspent note to its owner only", async () => {
+    const secret = deposited();
+    const sig = signals.noteBind(SESSION, noteBindNullifier(secret));
+    const proof = await prover.prove(ZkKind.NoteBind, { noteSecret: secret }, sig);
+    assert.deepEqual(proof.publicSignals, sig);
+    assert.equal(proof.kind, ZkKind.NoteBind);
+  });
+
+  it("rejects a secret that was never deposited (wrong or invented note)", async () => {
+    const invented = generateNoteSecret();
+    await expectRejected(
+      prover.prove(ZkKind.NoteBind, { noteSecret: invented }, signals.noteBind(SESSION, noteBindNullifier(invented))),
+      "NOTE_NOT_FOUND",
+    );
+  });
+
+  it("rejects a nullifier that is not derived from the note secret", async () => {
+    const secret = deposited();
+    const other = deposited();
+    await expectRejected(
+      prover.prove(ZkKind.NoteBind, { noteSecret: secret }, signals.noteBind(SESSION, noteBindNullifier(other))),
+      "NULLIFIER_MISMATCH",
+    );
+  });
+
+  it("rejects a note that was already spent (nullifier replay)", async () => {
+    const secret = deposited();
+    spent.add(noteBindNullifier(secret).toLowerCase());
+    await expectRejected(
+      prover.prove(ZkKind.NoteBind, { noteSecret: secret }, signals.noteBind(SESSION, noteBindNullifier(secret))),
+      "NOTE_ALREADY_SPENT",
+    );
+  });
+
+  it("rejects malformed witness and signals with 400", async () => {
+    const secret = deposited();
+    await expectRejected(prover.prove(ZkKind.NoteBind, {}, signals.noteBind(SESSION, noteBindNullifier(secret))), "BAD_REQUEST", 400);
+    await expectRejected(prover.prove(ZkKind.NoteBind, { noteSecret: "0x12" }, signals.noteBind(SESSION, noteBindNullifier(secret))), "BAD_REQUEST", 400);
+    await expectRejected(prover.prove(ZkKind.NoteBind, { noteSecret: secret }, [SESSION]), "BAD_REQUEST", 400);
+  });
+});
+
+describe("zk-sim NOTE_REFUND", () => {
+  function boundNote(sessionId: Hex) {
+    const secret = deposited();
+    bound.set(sessionId.toLowerCase(), noteBindNullifier(secret));
+    return secret;
+  }
+
+  it("proves refund only to the owner of the note bound to the session, for a fixed recipient", async () => {
+    const secret = boundNote(SESSION);
+    const sig = signals.noteRefund(SESSION, RECIPIENT, noteRefundNullifier(secret, SESSION));
+    const proof = await prover.prove(ZkKind.NoteRefund, { noteSecret: secret }, sig);
+    assert.deepEqual(proof.publicSignals, sig);
+  });
+
+  it("rejects someone who does not own the bound note (another note, or a session with no escrow)", async () => {
+    boundNote(SESSION);
+    const intruder = deposited();
+    await expectRejected(
+      prover.prove(ZkKind.NoteRefund, { noteSecret: intruder }, signals.noteRefund(SESSION, RECIPIENT, noteRefundNullifier(intruder, SESSION))),
+      "NOT_NOTE_OWNER",
+    );
+    const noEscrow = ("0x" + "77".repeat(32)) as Hex;
+    await expectRejected(
+      prover.prove(ZkKind.NoteRefund, { noteSecret: intruder }, signals.noteRefund(noEscrow, RECIPIENT, noteRefundNullifier(intruder, noEscrow))),
+      "NOT_NOTE_OWNER",
+    );
+  });
+
+  it("rejects a refund nullifier from another session, and one that is already used", async () => {
+    const secret = boundNote(SESSION_2);
+    await expectRejected(
+      prover.prove(ZkKind.NoteRefund, { noteSecret: secret }, signals.noteRefund(SESSION_2, RECIPIENT, noteRefundNullifier(secret, SESSION))),
+      "NULLIFIER_MISMATCH",
+    );
+    const nul = noteRefundNullifier(secret, SESSION_2);
+    spent.add(nul.toLowerCase());
+    await expectRejected(
+      prover.prove(ZkKind.NoteRefund, { noteSecret: secret }, signals.noteRefund(SESSION_2, RECIPIENT, nul)),
+      "NOTE_ALREADY_SPENT",
+    );
+  });
+
+  it("rejects a recipient signal that is not an address or is the zero address", async () => {
+    const secret = boundNote(SESSION);
+    const nul = noteRefundNullifier(secret, SESSION);
+    await expectRejected(
+      prover.prove(ZkKind.NoteRefund, { noteSecret: secret }, [SESSION, ("0x" + "ff".repeat(32)) as Hex, nul]),
+      "BAD_REQUEST",
+      400,
+    );
+    await expectRejected(
+      prover.prove(ZkKind.NoteRefund, { noteSecret: secret }, signals.noteRefund(SESSION, "0x0000000000000000000000000000000000000000", nul)),
+      "BAD_REQUEST",
+      400,
+    );
+  });
+
+  it("never echoes the note secret in errors", async () => {
+    const intruder = deposited();
+    try {
+      await prover.prove(ZkKind.NoteRefund, { noteSecret: intruder }, signals.noteRefund(SESSION, RECIPIENT, noteRefundNullifier(intruder, SESSION)));
+      assert.fail("harus ditolak");
+    } catch (e) {
+      assert.equal((e as Error).message.includes(intruder.slice(2)), false);
     }
   });
 });

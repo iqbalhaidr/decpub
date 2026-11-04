@@ -4,24 +4,26 @@ Integrasi tiga tugas akhir (Ciko, Hugo, Roihan) menjadi satu sistem publikasi il
 anonim (triple blind) dengan insentif penelaah. Rancangan: `../docs/arsitektur.md`.
 Urutan kerja: `../docs/PLAN.md`. Status: `../docs/PROGRESS.md`.
 
-**Status saat ini: M4 selesai.** Kontrak Ciko (M0), storage simulator (M1), ZK simulasi,
-`ActionGateway`, dan pseudonim tanpa tautan (M2), backend P01-P04 (M3), serta P05-P08 jalur diterima
-sampai `Published` (M4) berjalan. Insentif Hugo, revisi, dan frontend menyusul (M5 dst).
+**Status saat ini: M6 selesai.** Kontrak Ciko (M0), storage simulator (M1), ZK simulasi,
+`ActionGateway`, dan pseudonim tanpa tautan (M2), backend P01-P04 (M3), P05-P08 jalur diterima (M4),
+revisi, zona abu-abu, dan penolakan (M5), serta kontrak escrow dan insentif Hugo (M6) berjalan.
+Insentif di backend, pelengkap Roihan, dan frontend menyusul (M7 dst).
 Target akhir: `npm install && npm run demo`.
 
 ## Prasyarat
 
 - Node >= 22 (diuji di Node 24.11.0), npm 11.
 
-## Menjalankan (M0 sampai M4)
+## Menjalankan (M0 sampai M6)
 
 ```bash
 cd integrated
 npm install
 npm run chain            # terminal 1: node Hardhat di http://127.0.0.1:8545
-npm run deploy:local     # terminal 2: deploy 9 kontrak Ciko + verifier + gateway, pasang izin
-npm run check-wiring     # periksa semua izin (60 pemeriksaan)
-npm run test:contracts   # tes kontrak (Ciko, verifier, gateway)
+npm run deploy:local     # terminal 2: deploy 9 kontrak Ciko + verifier + gateway + 3 kontrak Hugo, pasang izin
+npm run check-wiring     # periksa semua izin dan keterhubungan (83 pemeriksaan)
+npm run test:contracts   # tes kontrak (Ciko, verifier, gateway, EscrowPool, IncentiveEngine, ReputationSBT)
+npm run test:incentive   # M6: mesin insentif off-chain Hugo + model referensi bilangan bulat
 
 npm run storage          # simulator storage di http://127.0.0.1:8081 (tetap hidup)
 npm run test:storage     # tes StorageProvider, kripto klien, simulator
@@ -37,7 +39,11 @@ npm run demo:m2          # demo/regresi M2: butuh `chain` + `deploy:local`, zk-s
 npm run demo:m3          # demo/regresi M3: butuh `chain` + `deploy:local`; storage, zk, dan server dinyalakan sendiri sebagai proses nyata
 npm run demo:m4          # demo/regresi M4: P05-P08 jalur diterima sampai Published, audit trail dari event (prasyarat sama)
 npm run demo:m5          # demo/regresi M5: revisi Minor/Major, zona abu-abu, desk reject/revisi desk, no-show (prasyarat sama)
+npm run demo:m6          # demo/regresi M6: escrow, refund, timeout, distribusi D1 = Lampiran B Hugo, klaim, decay (prasyarat sama; zk-sim dinyalakan sendiri)
 ```
+
+`demo:m6` memajukan jam chain lebih dari 180 hari (`evm_increaseTime`). Tidak merusak demo lain; jalankan ulang
+`npm run chain` dan `npm run deploy:local` bila ingin jam chain kembali normal.
 
 ### Storage publik (M1)
 
@@ -72,17 +78,20 @@ Alamat tersimpan di `contracts/deployments/localhost.json` (tidak masuk git).
 packages/shared/          StorageProvider, CID, kripto klien (secret, pseudonim, nullifier),
                           ZkProver, aksi EIP-712, ABI hasil generasi
 services/storage-sim/     simulator IPFS + halaman HTML (Express)
+packages/incentive-core/  salinan mesin insentif Hugo (normalisasi, BWM, ECWM, fusi, TOPSIS) + model referensi kontrak
 services/zk-sim/          attestor bukti ZK simulasi (Express)
 scripts/milestones/       demo:mN, dipertahankan sebagai uji regresi
 contracts/
   contracts/ciko/         9 kontrak Ciko (salinan; hanya EphemeralAccounts diubah)
   contracts/zk/           IZkVerifier, SimulatedZkVerifier
   contracts/gateway/      ActionGateway
-  ignition/modules/       Integrated.ts = CikoSystem.ts + verifier + gateway + izin
+  contracts/hugo/         EscrowPool, IncentiveEngine, ReputationSBT (M6)
+  hugo-params.ts          parameter kontrak Hugo (APC, timeout, decay), dipakai Ignition dan check-wiring
+  ignition/modules/       Integrated.ts = CikoSystem.ts + verifier + gateway + Hugo + izin
   wiring.ts               daftar izin, dipakai modul dan check-wiring
   scripts/                export-addresses.ts, check-wiring.ts, export-abis.ts
   test/ciko/              tes asli Ciko (disesuaikan untuk EphemeralAccounts)
-  test/integrated/        tes verifier dan gateway
+  test/integrated/        tes verifier, gateway, EscrowPool, IncentiveEngine, ReputationSBT, gas
 ```
 
 ## Catatan
@@ -143,3 +152,22 @@ Publik: `GET /public/sessions/:id` (proyeksi; isi telaah tampil setelah fase Clo
 `/assignment-proofs` (bukti penugasan yang bisa diperiksa lewat `SimulatedZkVerifier.verify`).
 
 Batasan M4: hanya jalur Accept; Minor/Major/Reject/zona abu-abu dan penelaah yang tidak commit/reveal menunggu M5.
+
+### Escrow dan insentif Hugo (M6)
+
+Tiga kontrak di `contracts/contracts/hugo/`. Kontrak Hugo hanya MEMBACA kontrak Ciko (tidak jadi session manager)
+dan membaca verifier ZK lewat `ActionGateway.verifier()`, jadi pemasangan verifier sungguhan tetap satu tempat.
+
+- **`EscrowPool`**: penulis menyetor note bernominal tetap (`deposit(H(rahasiaNote))`, APC 0,01 ETH). Relayer mengikatnya ke
+  sesi dengan bukti `NOTE_BIND` (note tidak muncul di transaksi ikat). Dana kembali penuh ke alamat baru (`refund`, bukti
+  `NOTE_REFUND`) bila sesi ditolak sebelum ada penelaah, atau macet lebih lama dari `idleTimeout` (90 hari) tanpa keputusan.
+  Bila ada keputusan penelaah dan status final (atau macet), dana hanya bisa dibagikan ke penelaah yang reveal.
+- **`IncentiveEngine`**: `executeDistribution` (hanya operator) menjalankan TOPSIS dan sigmoid Hugo atas baris pseudonim
+  yang sudah reveal, mengkredit seluruh escrow tanpa sisa, dan mencatat hash laporan QoS dan kebijakan. Penelaah mengklaim
+  ke alamat baru dengan tanda tangan EIP-712 pseudonim (`claimReward`).
+- **`ReputationSBT`**: kunci `reputationId = H(secret)`, bukan pseudonim. Mint lewat klaim bertanda bukti `REPUTATION_CLAIM`
+  (digabung relayer, jumlah kelipatan 0,25). Decay 2%/hari tidak bisa dihindari dengan `triggerDecay` (di Hugo bisa).
+
+Parameter (APC, timeout, decay) di `contracts/hugo-params.ts`; `APC_AMOUNT_WEI` dan `ESCROW_IDLE_TIMEOUT_SECONDS`
+menimpanya saat deploy. `[SIMULASI]` bukti `NOTE_BIND` dan `NOTE_REFUND` diperiksa witness-nya oleh zk-sim
+(note ada di pool, belum dibelanjakan, pemilik note yang terikat ke sesi). `REPUTATION_CLAIM` baru diperiksa zk-sim di M7.

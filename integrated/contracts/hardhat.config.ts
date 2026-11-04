@@ -10,6 +10,9 @@ export default defineConfig({
   plugins: [hardhatToolboxViemPlugin],
   solidity: {
     version: '0.8.28',
+    // Optimizer 200 runs, sama dengan Hugo (`hardhat.config.ts:11-16`), supaya angka gas
+    // sebanding dengan Lampiran B Hugo. Tanpa ini gas lebih tinggi dan tidak mewakili deployment nyata.
+    settings: { optimizer: { enabled: true, runs: 200 } },
   },
   networks: {
     localhost: {

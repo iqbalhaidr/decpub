@@ -91,6 +91,20 @@ export const signals = {
     commitment,
     addrWord(pseudonym),
   ],
+  /** [sessionId, nullifier]. `EscrowPool.bindNote`. */
+  noteBind: (sessionId: Hex, nullifier: Hex): Hex[] => [sessionId, nullifier],
+  /** [sessionId, recipient, nullifier]. `EscrowPool.refund`. */
+  noteRefund: (sessionId: Hex, recipient: Address, nullifier: Hex): Hex[] => [
+    sessionId,
+    addrWord(recipient),
+    nullifier,
+  ],
+  /** [reputationId, amount, nullifier]. `ReputationSBT.claimReputation`. */
+  reputationClaim: (reputationId: Hex, amount: bigint, nullifier: Hex): Hex[] => [
+    reputationId,
+    word(amount),
+    nullifier,
+  ],
 };
 
 /** Kesalahan dari `zk-sim`. `code` stabil (dipakai tes), `message` tidak memuat witness. */

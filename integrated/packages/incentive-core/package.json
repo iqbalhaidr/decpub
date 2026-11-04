@@ -1,0 +1,19 @@
+{
+  "name": "@decpub/incentive-core",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Mesin insentif off-chain Hugo (normalisasi, BWM, ECWM, fusi, TOPSIS) dan model referensi bilangan bulat untuk IncentiveEngine. Murni TypeScript, tanpa dependensi runtime.",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "test": "node --import tsx --test test/*.test.ts",
+    "typecheck": "tsc --noEmit"
+  },
+  "devDependencies": {
+    "@types/node": "^22.8.5",
+    "tsx": "^4.19.0",
+    "typescript": "~5.8.0"
+  }
+}
