@@ -21,9 +21,10 @@ import { SAMPLE_KINDS, generateSamplePdf, isSampleKind } from "../pdf/samples.js
 import { PRIVATE_STORE, type PrivateStore } from "../storage/private-store.js";
 import { Inject } from "@nestjs/common";
 import { getJson, refs, type IdentityRecord } from "./manuscript-files.js";
-import { IntakeDto } from "./manuscripts.dto.js";
+import { IntakeDto, RevisionIntakeDto } from "./manuscripts.dto.js";
 import { IntakeService } from "./intake.service.js";
 import { ManuscriptsRepository } from "./manuscripts.repository.js";
+import { RevisionService } from "./revision.service.js";
 
 const MAX_MULTIPART_BYTES = 25 * 1024 * 1024;
 
@@ -32,6 +33,7 @@ const MAX_MULTIPART_BYTES = 25 * 1024 * 1024;
 export class ManuscriptsController {
   constructor(
     private readonly intake: IntakeService,
+    private readonly revisions: RevisionService,
     private readonly manuscripts: ManuscriptsRepository,
     private readonly corpus: CorpusService,
     @Inject(PRIVATE_STORE) private readonly privateStore: PrivateStore,
@@ -86,6 +88,22 @@ export class ManuscriptsController {
       warnings: m.warnings,
       next: "Buat pseudonim Author (POST /flows/ephemeral-account), tanda tangani CreateSession, lalu POST /flows/submission",
     };
+  }
+
+  @ApiOperation({
+    summary: "Revisi: unggah PDF revisi. Mengembalikan nilai yang harus ditandatangani pseudonim Author.",
+    description:
+      "Hanya saat sesi MinorRevisionRequired / MajorRevisionRequired. Naskah dianonimkan seperti P04 dan hash barunya " +
+      "dihitung; belum ada yang dicatat on-chain sampai aksi `RecordRevision` bertanda tangan dikirim ke POST /flows/revision.",
+  })
+  @ApiConsumes("multipart/form-data")
+  @ApiBody({ type: RevisionIntakeDto })
+  @Auth("author", "reviewer")
+  @UseInterceptors(FileInterceptor("file", { limits: { fileSize: MAX_MULTIPART_BYTES } }))
+  @Post(":id/revisions/intake")
+  async revisionIntake(@CurrentUser() u: AuthUser, @Param("id") id: string, @UploadedFile() file: Express.Multer.File | undefined, @Body() dto: RevisionIntakeDto) {
+    if (!file) throw new BadRequestException("Berkas (field `file`) wajib");
+    return this.revisions.intake(u.id, id, file, dto);
   }
 
   @ApiOperation({ summary: "Naskah milik saya." })

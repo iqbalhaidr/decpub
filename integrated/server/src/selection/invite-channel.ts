@@ -12,7 +12,7 @@ export const INVITE_CHANNEL = Symbol("INVITE_CHANNEL");
 
 export interface InviteChannel {
   /** Menyimpan undangan untuk `userRef` (id akun). */
-  send(userRef: string, invite: Omit<Invitation, "id" | "createdAt" | "acceptedAt" | "userId">): Promise<Invitation>;
+  send(userRef: string, invite: Omit<Invitation, "id" | "createdAt" | "acceptedAt" | "voidedAt" | "userId">): Promise<Invitation>;
   inbox(userRef: string, role: InviteRole): Promise<Invitation[]>;
 }
 
@@ -20,7 +20,7 @@ export interface InviteChannel {
 export class DbInviteChannel implements InviteChannel {
   constructor(private readonly repo: InvitationsRepository) {}
 
-  async send(userRef: string, invite: Omit<Invitation, "id" | "createdAt" | "acceptedAt" | "userId">): Promise<Invitation> {
+  async send(userRef: string, invite: Omit<Invitation, "id" | "createdAt" | "acceptedAt" | "voidedAt" | "userId">): Promise<Invitation> {
     return this.repo.insert({ ...invite, userId: userRef });
   }
 

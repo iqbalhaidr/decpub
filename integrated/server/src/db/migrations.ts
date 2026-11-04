@@ -109,4 +109,29 @@ CREATE TABLE session_criteria (
 );
 `,
   },
+  {
+    version: 3,
+    sql: `
+-- Revisi naskah (M5). Revisi 0 adalah baris di \`manuscripts\`; tiap revisi berikutnya satu baris di sini.
+-- \`recorded_at\` kosong = sudah di-intake dan menunggu tanda tangan pseudonim Author (staging).
+CREATE TABLE manuscript_revisions (
+  manuscript_id   TEXT NOT NULL REFERENCES manuscripts(id),
+  revision        INTEGER NOT NULL,
+  original_hash   TEXT NOT NULL,
+  anonymized_hash TEXT NOT NULL,
+  metadata_hash   TEXT NOT NULL,
+  anonymized_cid  TEXT NOT NULL,
+  anonymized_uri  TEXT NOT NULL,
+  metadata_cid    TEXT NOT NULL,
+  metadata_uri    TEXT NOT NULL,
+  created_at      TEXT NOT NULL,
+  recorded_at     TEXT,
+  PRIMARY KEY (manuscript_id, revision)
+);
+
+-- Undangan yang batch-nya ditinggalkan karena tidak ada penelaah yang reveal (no-show). Tetap tercatat
+-- supaya orangnya tidak diundang lagi pada ronde yang sama.
+ALTER TABLE invitations ADD COLUMN voided_at TEXT;
+`,
+  },
 ];

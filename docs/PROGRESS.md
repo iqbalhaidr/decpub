@@ -4,7 +4,7 @@ Diperbarui di akhir setiap sesi.
 
 ## Terakhir diperbarui
 
-2026-11-04, sesi M4.
+2026-11-04, sesi M5.
 
 ## Selesai
 
@@ -55,9 +55,25 @@ Diperbarui di akhir setiap sesi.
   - **"Server tidak pernah menerima rekomendasi sebelum reveal"** dibuktikan tiga lapis: (1) DTO commit hanya memuat `commitHash` dan `ValidationPipe` membuang field lain (tes `ReviewsService`), (2) `Api.trace` pada demo merekam isi semua permintaan klien: permintaan commit hanya berkunci `action,signature`, tanpa `recommendation`/`reviewNonce`/teks, (3) reveal ditolak 409 selama fase belum Reveal.
   - **Tes:** `npm test` lulus seluruhnya: kontrak 191, shared 22 (+7 `documents.test.ts`), storage-sim 19, zk-sim 19 (+6 ASSIGNMENT), **server 57** (+26: `p05-p07.test.ts` 23 untuk seleksi, driver sistem, commit/reveal, editorial; +3 HTTP). `npm run typecheck` bersih. Regresi `demo:m1`, `demo:m2`, `demo:m3`, `check-wiring` (60/60) tetap lulus.
 
+- **M5 selesai.** Semua kriteria terpenuhi dan dijalankan sendiri (`npm run demo:m5`, node Hardhat sungguhan, proses nyata, tanpa mock; dijalankan 4 kali berturut-turut karena seleksinya acak, semuanya lulus):
+  - **Konsep ronde.** Satu ronde = batch-batch yang keputusannya diagregasi bersama. Batch k bergabung ke ronde batch k+1 bila keputusan k adalah zona abu-abu atau k ditinggalkan; keputusan non-abu-abu menutup ronde. Dihitung dari chain (keputusan) dan DB (undangan), tanpa state tambahan (`flows/rounds.service.ts`).
+  - **Revisi** (`manuscripts/revision.service.ts`, tabel `manuscript_revisions`, berkas privat di `manuscripts/<id>/rev<n>/`): `POST /manuscripts/:id/revisions/intake` (multipart; anonimisasi sama dengan P04, `metadataHash` bersalt baru, identitas disalin dari revisi sebelumnya) lalu `POST /flows/revision` (aksi `RecordRevision` bertanda tangan pseudonim Author; naskah anonim diunggah ke storage publik sebelum transaksi, CID dicocokkan). Hanya saat `Minor/MajorRevisionRequired`, hanya pemilik. Hash on-chain berubah (asli, anonim, metadata, URI, `revisionCount`); PDF anonim revisi terunduh dari storage dengan sha256 = on-chain.
+  - **Minor** → `AssigningReviewers` → batch baru berisi orang yang sama (yang reveal di ronde lalu), pseudonim baru (slot = nomor batch), fase Commit dibuka ulang. **Major** (dan revisi desk) → `UnderEditorialScreening` dengan editor yang sama (tanpa undangan editor baru); setelah Proceed, ronde penelaah baru dipilih acak. **Zona abu-abu** → batch tambahan 2 orang baru, keputusan batch berikutnya diagregasi atas seluruh pseudonim ronde (demo: 3 Accept, 1 Minor, 1 Reject atas 5 pseudonim → `AcceptAsIs`). **Desk reject** → `Rejected` tanpa penelaah; sistem diam, revisi 409.
+  - **Penelaah tidak merespons** (`POST /admin/sessions/:id/close-phase`, admin): Commit sebagian → buka Reveal bagi yang commit; Reveal sebagian → tutup, keputusan atas yang reveal (D3, demo: `reviewerCount` 2); nol commit/nol reveal → batch ditinggalkan (undangan `voided`, orangnya tidak diundang lagi di ronde itu), `UnderReview → AssigningReviewers` (transisi yang sah di kontrak lewat `updateStatus`), batch pengganti dengan jumlah sama.
+  - **Server:** `ProgressService` diperluas (cabang pasca-keputusan, `closePhase`, `blocked`), `SelectionService.inviteReviewers` menerima `prefer`/`exclude`, `InvitationsRepository` punya `voided_at`, proyeksi publik menambah `decisions` (keputusan tiap batch) dan `review.roundBatches`, telaah mencakup seluruh ronde. Migrasi v3.
+  - **Hasil `demo:m5`:** tujuh jalur mencetak jejak status dari event on-chain, semua persis sesuai diagram:
+    - A Minor: `UnderAnonymization → UnderEditorialScreening → AssigningReviewers → UnderReview → MinorRevisionRequired → AssigningReviewers → UnderReview → Accepted → Published`
+    - B Major: `… UnderReview → MajorRevisionRequired → UnderEditorialScreening → AssigningReviewers → UnderReview → Accepted → Published`
+    - C Abu-abu: `… UnderReview → AssigningReviewers → UnderReview → Accepted → Published`
+    - D Desk reject: `UnderAnonymization → UnderEditorialScreening → Rejected`; revisi desk: `… → MajorRevisionRequired → UnderEditorialScreening → AssigningReviewers`
+    - E1 satu no-show dan E2 semua no-show (batch pengganti): jejak seperti diagram.
+    Negatif yang ditolak: revisi saat `UnderReview` (409), penulis lain (404), bukan PDF (400), pengajuan tanpa intake (409), aksi dimanipulasi (400), tanda tangan kunci lain (`InvalidSignature`), revisi ganda, revisi pada `Rejected`, commit ulang oleh pseudonim batch lama, commit oleh penelaah yang dikecualikan, penelaah/editor menutup fase (403), menutup fase pada sesi selesai (409). Pemindaian 236 transaksi (termasuk revisi): tanpa identitas, secret, salt undangan, nama, atau surel.
+  - **Tes:** `npm test` lulus seluruhnya: kontrak 191, shared 22, storage-sim 19, zk-sim 19, **server 90** (+33: `m5.test.ts` 31 untuk ronde, pemilihan abu-abu/Minor/Major/pengganti, batas 10, `closePhase`, `RevisionService`, repositori; +2 HTTP). `npm run typecheck` bersih. Regresi `demo:m1`-`demo:m4` dan `check-wiring` (60/60) tetap lulus.
+  - Klien skrip: `Member.intakeRevision/submitRevision`; data commit tertunda kini berkunci sesi+slot (satu orang punya beberapa ronde di sesi yang sama; frontend M11 harus sama). Pustaka alur bersama `scripts/lib/flow.ts` (dipakai M12).
+
 ## Tersisa
 
-Milestone berikutnya: **M5, revisi, zona abu-abu, penolakan** (Minor/Major lewat `recordRevisionSigned`, batch dan pseudonim baru, zona abu-abu +2 penelaah, desk reject/revisi desk, penelaah yang tidak commit/reveal). M5 sampai M13 belum dikerjakan.
+Milestone berikutnya: **M6, kontrak escrow dan insentif** (`EscrowPool`, `IncentiveEngine`, `ReputationSBT`, port tes Hugo). M6 sampai M13 belum dikerjakan.
 
 
 ## Temuan di lapangan (M0)
@@ -138,14 +154,37 @@ Tidak ada yang bertentangan dengan `arsitektur.md` atau `analisis/` pada tingkat
 - **Percobaan reveal dini yang disengaja pada demo** mengirim rekomendasi ke server (ditolak 409). Itu perilaku penyerang/klien salah, bukan klien yang benar, jadi dikecualikan dari analisis "isi permintaan" di demo; bukti server menolaknya ada di tes `ReviewsService`.
 - **`pendingReviews` pada klien** (data pembukaan commit) disimpan hanya setelah commit diterima. Bug awal di skrip demo: commit ganda yang ditolak menimpa nonce yang sah. Frontend (M11) harus berperilaku sama dan menyimpan data ini di penyimpanan lokal browser.
 
+## Temuan di lapangan (M5)
+
+Tidak ada yang bertentangan dengan `arsitektur.md` atau `analisis/`. Keputusan Anda dan keputusan kecil yang saya ambil sendiri (mohon dikoreksi):
+
+**Keputusan Anda (2026-11-05):**
+
+- **Zona abu-abu yang menembus batas 10 penelaah per ronde** (D2): otomatis `Rejected`. Tambahan penelaah dibatasi agar total tidak melebihi 10; bila kapasitas habis dan masih tanpa mayoritas, `ProgressService` memanggil `updateStatus(UnderReview)` lalu `updateStatus(Rejected)` (kontrak hanya mengizinkan `AssigningReviewers → UnderReview`, dan `Rejected` dicapai dari `UnderReview`), sehingga jejaknya `… AssigningReviewers → UnderReview → Rejected`. Ini diuji di tes unit (`m5.test.ts`); belum didemokan di chain karena butuh 10 penelaah terdaftar. Penelaah tetap dibayar (aturan dana A3, M7).
+- **Tenggat otomatis untuk "tidak merespons"**: ditunda ke M7 bersama timeout escrow. Sampai itu, `POST /admin/sessions/:id/close-phase` tetap pemicunya.
+
+**Keputusan kecil yang saya ambil:**
+
+- **Revisi Major memilih ronde penelaah baru secara acak** dan penelaah ronde lama boleh terpilih lagi (hanya penulis yang dikecualikan). B3 hanya menyebut "Minor mengundang orang yang sama"; untuk Major dokumen diam. Mengecualikan semua peserta lama membuat pool demo (6 penelaah) cepat habis.
+- **Revisi Minor mengundang orang yang reveal di ronde lalu**; bila ada yang tak lagi memenuhi syarat, kekurangannya diisi acak. Jumlah = jumlah peserta (bisa 5 setelah zona abu-abu).
+- **Penelaah no-show tidak diundang lagi di ronde yang sama**, tetapi tetap bisa terpilih di ronde berikutnya (setelah revisi).
+- **Revisi tidak menjalankan lagi P03** (cek otomatis, plagiarisme) sesuai B3. Akibatnya naskah revisi bisa lolos tanpa pengecekan plagiarisme. Server hanya memberi peringatan `identityExposed` pada hasil intake revisi (tidak masuk chain). Ini batasan B3 yang perlu masuk bagian 13.
+- **Penelaah yang tidak pernah mengikat penugasan** (tidak menerima undangan) masih menahan sesi di `AssigningReviewers`; tidak ada jalur pengganti untuk fase ini (hanya fase Commit/Reveal). Sama seperti editor yang tidak merespons. Masuk bersama timeout di M7.
+- **Kontrak mengizinkan `UnderReview → AssigningReviewers` lewat `updateStatus`** (`PublicationSessions._isValidTransition`), dipakai untuk meninggalkan batch. Batch yang ditinggalkan tetap tercatat di chain (`ReviewerSelectionBatchRecorded`, commit tanpa reveal) dan tidak punya keputusan; penanda "ditinggalkan" hanya di DB server (`voided_at`), jadi audit trail on-chain saja tidak membedakannya dari batch yang masih menunggu. Bila perlu bisa dijadikan event, tetapi itu mengubah `ActionGateway`.
+- **`decision` di proyeksi publik adalah keputusan batch terakhir**, sehingga sesaat setelah zona abu-abu nilainya `null` (batch tambahan sudah tercatat). Daftar lengkap ada di `decisions`. Bug awal di skrip demo bersumber dari sini.
+- Telaah yang tampil publik mencakup seluruh ronde, tersembunyi selama fase Commit batch tambahan (supaya telaah sebagian tidak bocor); event on-chain tetap publik.
+- Pendaftar revisi memakai JWT pemilik naskah (seperti pengajuan awal) sekaligus tanda tangan pseudonim; server tahu akun mana yang merevisi, tidak tahu pseudonim mana yang dipakai selain yang sudah ada di chain.
+- `pkill -f` pada nama proses Hardhat mematikan shell sendiri (sama seperti catatan M3); hentikan node lewat PID.
+
 ## Masalah terbuka
 
 - Kode Hugo dan Roihan belum pernah dijalankan (baru Ciko di M0). Tes Hugo dijalankan saat M6.
 - Daftar `decideBatch` dan urutan fase telaah masih dijaga operator (batasan Ciko, arsitektur bagian 13). Gateway meneruskan apa adanya. Sejak M4 server menegakkan "Reveal setelah semua commit" dan "hanya yang reveal dihitung", tetapi kontrak tidak.
-- Penelaah yang tidak mengikat, tidak commit, atau tidak reveal menahan sesi tanpa batas waktu (M5/M7: pengganti, timeout, refund). Editor yang tidak merespons juga belum punya jalur pengganti.
+- Penelaah yang tidak commit atau reveal kini bisa ditangani admin (`close-phase`, M5), tetapi tenggat otomatis dan timeout refund menunggu M7. Penelaah yang tidak mengikat penugasan dan editor yang tidak merespons belum punya jalur pengganti.
+- Tenggat otomatis untuk fase telaah yang macet (pengganti `close-phase` manual) dikerjakan di M7.
 - Dua keputusan terbuka di "Temuan di lapangan (M4)": tautan pseudonim di server saat pengikatan, dan pembuatan pseudonim yang tak dibatasi undangan.
 - `npm install` melaporkan kerentanan pada rantai dev; belum diperiksa (sama seperti M0).
-- Frontend/zk-sim: CORS zk-sim belum diatur (M10). Kebijakan bobot jurnal tersimpan tetapi belum dikunci ke sesi (M7). Refund APC pada Reject/Incomplete-ditutup menunggu M6/M7.
+- Frontend/zk-sim: CORS zk-sim belum diatur (M10). Kebijakan bobot jurnal tersimpan tetapi belum dikunci ke sesi (M7). Refund APC pada Reject/Incomplete-ditutup/desk reject menunggu M6/M7 (jalur `Rejected` M5 sudah ada, dananya belum).
 - Kompatibilitas pragma `^0.8.24` kontrak Hugo/Roihan dengan solc 0.8.28 belum diuji (M6, M8).
 - M13 butuh RPC Sepolia, kunci deployer baru, dan ETH testnet dari pengguna.
 
@@ -173,6 +212,7 @@ npm run server           # M3: server di http://127.0.0.1:3001 (Swagger /api); b
 npm run test:server      # tes server
 npm run demo:m3          # demo/regresi M3 (butuh chain + deploy:local; menyalakan storage, zk, server sendiri)
 npm run demo:m4          # demo/regresi M4: P05-P08 jalur diterima sampai Published (prasyarat sama)
+npm run demo:m5          # demo/regresi M5: revisi Minor/Major, zona abu-abu, desk reject/revisi desk, no-show (prasyarat sama)
 ```
 
 Target akhir: `cd integrated && npm install && npm run demo`.

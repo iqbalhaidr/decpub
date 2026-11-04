@@ -63,3 +63,31 @@ export class AdvanceDto {
   @IsBoolean()
   recheck?: boolean;
 }
+
+export class RevisionActionDto {
+  @Matches(HEX32) sessionId!: string;
+  @Matches(ADDRESS) pseudonym!: string;
+  @Matches(HEX32) newOriginalManuscriptHash!: string;
+  @Matches(HEX32) newAnonymizedManuscriptHash!: string;
+  @Matches(HEX32) newMetadataHash!: string;
+  @IsString() newAnonymizedManuscriptURI!: string;
+  @IsString() newMetadataURI!: string;
+  @ApiProperty({ description: "Bilangan bulat desimal (nonce gateway pseudonim)." })
+  @Matches(/^\d+$/)
+  nonce!: string;
+}
+
+export class RevisionDto {
+  @ApiProperty({ description: "ID naskah" })
+  @IsString()
+  manuscriptId!: string;
+
+  @ApiProperty({ type: RevisionActionDto })
+  @ValidateNested()
+  @Type(() => RevisionActionDto)
+  action!: RevisionActionDto;
+
+  @ApiProperty({ description: "Tanda tangan EIP-712 `RecordRevision` oleh pseudonim Author" })
+  @Matches(HEX_BYTES)
+  signature!: string;
+}

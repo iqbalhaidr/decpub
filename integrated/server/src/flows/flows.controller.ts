@@ -6,7 +6,8 @@ import { GatewayService } from "../chain/gateway.service.js";
 import { SessionReader } from "../chain/session-reader.service.js";
 import { ManuscriptsRepository } from "../manuscripts/manuscripts.repository.js";
 import { SessionDetailService } from "./session-detail.service.js";
-import { AdvanceDto, CreateEphemeralDto, SubmissionDto } from "./flows.dto.js";
+import { AdvanceDto, CreateEphemeralDto, RevisionDto, SubmissionDto } from "./flows.dto.js";
+import { RevisionService } from "../manuscripts/revision.service.js";
 import { PipelineService } from "./pipeline.service.js";
 import { ADDRESS } from "../common/validators.js";
 
@@ -16,6 +17,7 @@ export class FlowsController {
   constructor(
     private readonly gateway: GatewayService,
     private readonly pipeline: PipelineService,
+    private readonly revisions: RevisionService,
     private readonly detail: SessionDetailService,
     private readonly manuscripts: ManuscriptsRepository,
     private readonly reader: SessionReader,
@@ -65,6 +67,31 @@ export class FlowsController {
         anonymizedManuscriptURI: dto.action.anonymizedManuscriptURI,
         metadataURI: dto.action.metadataURI,
         nonce: dto.action.nonce,
+      },
+      signature: dto.signature as Hex,
+    });
+  }
+
+  @ApiOperation({
+    summary: "Revisi naskah: aksi `RecordRevision` bertanda tangan pseudonim Author (setelah intake revisi).",
+    description:
+      "Server memeriksa isi aksi = hasil intake revisi, mengunggah naskah anonim ke storage publik, lalu meneruskan ke gateway. " +
+      "Minor -> AssigningReviewers (penelaah yang sama, pseudonim baru); Major -> UnderEditorialScreening (editor yang sama).",
+  })
+  @Auth("author", "reviewer")
+  @Post("revision")
+  revise(@CurrentUser() u: AuthUser, @Body() dto: RevisionDto) {
+    const a = dto.action;
+    return this.revisions.submit(u.id, dto.manuscriptId, {
+      action: {
+        sessionId: a.sessionId as Hex,
+        pseudonym: a.pseudonym as Address,
+        newOriginalManuscriptHash: a.newOriginalManuscriptHash as Hex,
+        newAnonymizedManuscriptHash: a.newAnonymizedManuscriptHash as Hex,
+        newMetadataHash: a.newMetadataHash as Hex,
+        newAnonymizedManuscriptURI: a.newAnonymizedManuscriptURI,
+        newMetadataURI: a.newMetadataURI,
+        nonce: a.nonce,
       },
       signature: dto.signature as Hex,
     });

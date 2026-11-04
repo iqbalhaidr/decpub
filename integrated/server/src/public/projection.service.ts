@@ -7,11 +7,12 @@
  * (Event on-chain tetap publik di ledger; pembatasan ini untuk proyeksi API.)
  */
 import { Inject, Injectable } from "@nestjs/common";
-import type { Address, Hex } from "viem";
+import type { Hex } from "viem";
 import { PublicationStatus, ReviewPhase, gatewayUrl } from "@decpub/shared";
 import { SessionReader } from "../chain/session-reader.service.js";
 import { APP_CONFIG, type AppConfig } from "../config/config.js";
 import { InvitationsRepository } from "../selection/invitations.repository.js";
+import { RoundService } from "../flows/rounds.service.js";
 
 const cidOfUri = (uri: string) => uri.replace(/^ipfs:\/\//, "");
 
@@ -21,6 +22,7 @@ export class ProjectionService {
     @Inject(APP_CONFIG) private readonly config: AppConfig,
     private readonly reader: SessionReader,
     private readonly invitations: InvitationsRepository,
+    private readonly rounds: RoundService,
   ) {}
 
   private url(uri: string) {
@@ -34,22 +36,28 @@ export class ProjectionService {
 
     const batchNo = await this.reader.latestBatchNumber(sessionId);
     const phase = await this.reader.reviewPhase(sessionId);
-    const invites = batchNo > 0 ? this.invitations.forBatch(sessionId, batchNo) : [];
-    const owners: Address[] = [];
-    for (const i of invites) {
-      const o = await this.reader.assignmentOwner(sessionId, i.assignmentCommitment as Hex);
-      if (o) owners.push(o);
-    }
+    // `selection` menggambarkan batch terakhir; `review` mencakup seluruh ronde (zona abu-abu menambah batch).
+    const latestInvites = batchNo > 0 ? this.invitations.forBatch(sessionId, batchNo) : [];
+    let boundInLatest = 0;
+    for (const i of latestInvites) if (await this.reader.assignmentOwner(sessionId, i.assignmentCommitment as Hex)) boundInLatest++;
+    const roundBatches = batchNo > 0 ? await this.rounds.batchesOfRound(sessionId, batchNo) : [];
+    const participants = await this.rounds.bound(sessionId, roundBatches);
     let committed = 0;
     let revealed = 0;
     const reveals = [];
-    for (const p of owners) {
-      if (await this.reader.hasCommit(sessionId, p)) committed++;
-      const r = await this.reader.revealRecord(sessionId, p);
+    for (const { pseudonym } of participants) {
+      if (await this.reader.hasCommit(sessionId, pseudonym)) committed++;
+      const r = await this.reader.revealRecord(sessionId, pseudonym);
       if (r) {
         revealed++;
         reveals.push(r);
       }
+    }
+    // Keputusan setiap batch, berurutan: jejak zona abu-abu dan revisi terlihat tanpa membaca event satu per satu.
+    const decisions = [];
+    for (let b = 1; b <= batchNo; b++) {
+      const d = await this.reader.decision(sessionId, b);
+      if (d) decisions.push(d);
     }
     const decision = batchNo > 0 ? await this.reader.decision(sessionId, batchNo) : null;
     const reviewsVisible = phase.value === ReviewPhase.Closed || session.statusValue >= PublicationStatus.Accepted;
@@ -60,9 +68,10 @@ export class ProjectionService {
       automaticCheck,
       reportUrl: automaticCheck ? this.url(automaticCheck.reportURI) : null,
       editorial: editorial && { ...editorial, reportUrl: this.url(editorial.anonymousEditorialReportURI) },
-      selection: { batch: batchNo, selected: invites.length, bound: owners.length },
+      selection: { batch: batchNo, selected: latestInvites.length, bound: boundInLatest },
       review: {
         phase: phase.name,
+        roundBatches,
         committed,
         revealed,
         // Pseudonim penelaah tampil bersama rekomendasinya (matriks insentif publik); tanpa identitas orang.
@@ -71,6 +80,7 @@ export class ProjectionService {
           : null,
       },
       decision,
+      decisions,
     };
   }
 

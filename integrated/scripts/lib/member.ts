@@ -23,6 +23,7 @@ import {
   signCommit,
   signCreateSession,
   signReveal,
+  signRevision,
   signScreening,
   signals,
   type RecommendationValue,
@@ -199,8 +200,12 @@ export class Member {
     return this.anon().post("/flows/editorial-screening", body);
   }
 
-  /** Data commit yang hanya ada di klien sampai reveal. */
+  /**
+   * Data commit yang hanya ada di klien sampai reveal. Kuncinya sesi + slot (nomor batch): satu orang
+   * bisa punya beberapa ronde di sesi yang sama (revisi, zona abu-abu), tiap ronde dengan pseudonim sendiri.
+   */
   private pendingReviews = new Map<string, PendingReview>();
+  private pendingKey = (invite: Invite) => `${invite.sessionId.toLowerCase()}#${invite.slot}`;
 
   /**
    * Penelaah membuat commit: dokumen telaah, hash/CID, nonce acak, dan `commitHash` dihitung di
@@ -219,13 +224,13 @@ export class Member {
     const signature = await signCommit(this.signer(ps.privateKey), action);
     const res = await this.anon().post("/flows/reviews/commit", { action: { ...action, nonce: nonce.toString() }, signature });
     // Data pembukaan disimpan hanya bila commit diterima: commit yang ditolak tidak boleh menimpa yang sah.
-    this.pendingReviews.set(invite.sessionId.toLowerCase(), { invite, recommendation, text, reviewHash, reviewURI, reviewNonce });
+    this.pendingReviews.set(this.pendingKey(invite), { invite, recommendation, text, reviewHash, reviewURI, reviewNonce });
     return res;
   }
 
   /** Penelaah membuka commit-nya; isi telaah dikirim bersama pembukaan. */
   async revealReview(invite: Invite) {
-    const p = this.pendingReviews.get(invite.sessionId.toLowerCase());
+    const p = this.pendingReviews.get(this.pendingKey(invite));
     if (!p) throw new Error("Tidak ada commit tertunda untuk sesi ini (data commit hanya di klien)");
     const ps = deriveEphemeral(this.secret, invite.sessionId, Role.Reviewer, invite.slot);
     const nonce = await this.nonceOf(ps.pseudonym);
@@ -241,6 +246,11 @@ export class Member {
     };
     const signature = await signReveal(this.signer(ps.privateKey), action);
     return this.anon().post("/flows/reviews/reveal", { action: { ...action, nonce: nonce.toString() }, signature, text: p.text });
+  }
+
+  /** Data commit tertunda sebuah undangan (hanya untuk uji yang sengaja menyimpang). */
+  pendingFor(invite: Invite): PendingReview | undefined {
+    return this.pendingReviews.get(this.pendingKey(invite));
   }
 
   /** Pseudonim penelaah untuk sebuah undangan (diturunkan dari secret). */
@@ -273,6 +283,39 @@ export class Member {
     return this.api.postForm<IntakeResult>("/manuscripts/intake", form);
   }
 
+  /** Revisi, langkah 1: unggah PDF revisi. Server menganonimkan dan mengembalikan nilai yang harus ditandatangani. */
+  async intakeRevision(manuscriptId: string, pdf: Uint8Array, f: { title?: string; abstract?: string; keywords?: string } = {}, filename = "revision.pdf") {
+    const form = new FormData();
+    form.append("file", new Blob([pdf as BlobPart], { type: "application/pdf" }), filename);
+    for (const [k, v] of Object.entries(f)) if (v !== undefined) form.append(k, String(v));
+    return this.api.postForm<RevisionIntakeResult>(`/manuscripts/${manuscriptId}/revisions/intake`, form);
+  }
+
+  /** Revisi, langkah 2: tanda tangan `RecordRevision` dengan pseudonim Author (diturunkan dari secret), lalu kirim. */
+  async submitRevision(
+    manuscriptId: string,
+    intake: RevisionIntakeResult,
+    opts: { signAs?: Member; tamper?: (body: Record<string, any>) => void } = {},
+  ) {
+    const author = deriveEphemeral(this.secret, intake.sessionId, Role.Author, 0);
+    const signerKey = deriveEphemeral((opts.signAs ?? this).secret, intake.sessionId, Role.Author, 0).privateKey;
+    const nonce = await this.nonceOf(author.pseudonym);
+    const action = {
+      sessionId: intake.sessionId,
+      pseudonym: author.pseudonym,
+      newOriginalManuscriptHash: intake.newOriginalManuscriptHash,
+      newAnonymizedManuscriptHash: intake.newAnonymizedManuscriptHash,
+      newMetadataHash: intake.newMetadataHash,
+      newAnonymizedManuscriptURI: intake.newAnonymizedManuscriptURI,
+      newMetadataURI: intake.newMetadataURI,
+      nonce,
+    };
+    const signature = await signRevision(this.signer(signerKey), action);
+    const body: Record<string, any> = { manuscriptId, action: { ...action, nonce: nonce.toString() }, signature };
+    opts.tamper?.(body);
+    return this.api.post<RevisionResult>("/flows/revision", body);
+  }
+
   /** Alur penulis lengkap: intake -> pseudonim -> tanda tangan -> pengajuan. */
   async submitManuscript(pdf: Uint8Array, f: Parameters<Member["intake"]>[1]) {
     const intake = await this.intake(pdf, f);
@@ -293,12 +336,34 @@ export interface Invite {
   criteria: { fields: string[]; hash: Hex };
   proofUri: string;
   accepted: boolean;
+  voided?: boolean;
   sessionStatus: string;
   journal: { id: number; name: string; category: string } | null;
   anonymizedManuscriptUrl: string | null;
 }
 
-interface PendingReview {
+export interface RevisionIntakeResult {
+  manuscriptId: string;
+  sessionId: Hex;
+  revision: number;
+  nextStatus: "AssigningReviewers" | "UnderEditorialScreening";
+  newOriginalManuscriptHash: Hex;
+  newAnonymizedManuscriptHash: Hex;
+  newMetadataHash: Hex;
+  newAnonymizedManuscriptURI: string;
+  newMetadataURI: string;
+  warnings: string[];
+}
+
+export interface RevisionResult {
+  revision: number;
+  tx: { txHash: Hex; blockNumber: number };
+  status: string;
+  progress?: { status: string; actions: string[]; blocked: string | null };
+  notes?: string[];
+}
+
+export interface PendingReview {
   invite: Invite;
   recommendation: RecommendationValue;
   text: string;

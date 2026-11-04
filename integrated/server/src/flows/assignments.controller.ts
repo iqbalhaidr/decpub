@@ -63,6 +63,7 @@ export class AssignmentsController {
         criteria: { fields: i.criteriaFields, hash: i.criteriaHash },
         proofUri: i.proofUri,
         accepted: Boolean(i.acceptedAt),
+        voided: Boolean(i.voidedAt),
         sessionStatus: status,
         journal: journal ? { id: journal.id, name: journal.name, category: journal.categorySlug } : null,
         anonymizedManuscriptUrl,
@@ -115,6 +116,19 @@ export class AssignmentsController {
   @Post("flows/reviews/reveal")
   reveal(@Body() dto: RevealDto) {
     return this.reviews.reveal(dto);
+  }
+
+  @ApiOperation({
+    summary: "Admin: tutup fase telaah yang macet (penelaah tidak commit/reveal), lalu lanjutkan.",
+    description:
+      "Mewakili tenggat yang terlewat. Penelaah yang tidak merespons dikecualikan dari ronde ini (hanya yang reveal dihitung, D3). " +
+      "Tanpa satu pun commit/reveal, batch ditinggalkan dan sistem mencari pengganti. Tenggat otomatis menyusul di M7 bersama timeout escrow.",
+  })
+  @Auth("admin")
+  @Post("admin/sessions/:sessionId/close-phase")
+  closePhase(@Param("sessionId") sessionId: string) {
+    if (!/^0x[0-9a-fA-F]{64}$/.test(sessionId)) throw new NotFoundException("sessionId tidak sah");
+    return this.progress.closePhase(sessionId as Hex);
   }
 
   @ApiOperation({

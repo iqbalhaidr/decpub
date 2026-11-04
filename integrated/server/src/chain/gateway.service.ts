@@ -11,6 +11,7 @@ import type {
   CreateSessionAction,
   PublicationStatusValue,
   RevealAction,
+  RevisionAction,
   RoleValue,
   ScreeningAction,
 } from "@decpub/shared";
@@ -40,6 +41,11 @@ export class GatewayService {
 
   createSessionSigned(action: CreateSessionAction, signature: Hex): Promise<TxReceipt> {
     return this.send("createSessionSigned", [action, signature]);
+  }
+
+  /** Revisi naskah bertanda tangan pseudonim Author (hanya pada status Minor/MajorRevisionRequired). */
+  recordRevisionSigned(action: RevisionAction, signature: Hex): Promise<TxReceipt> {
+    return this.send("recordRevisionSigned", [action, signature]);
   }
 
   /** Mengikat commitment penugasan penelaah ke pseudonim (bukti `ASSIGNMENT_OWNERSHIP`). */

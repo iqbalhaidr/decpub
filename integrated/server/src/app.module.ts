@@ -15,6 +15,9 @@ import { ChecksService } from "./manuscripts/checks.service.js";
 import { IntakeService } from "./manuscripts/intake.service.js";
 import { ManuscriptsController } from "./manuscripts/manuscripts.controller.js";
 import { ManuscriptsRepository } from "./manuscripts/manuscripts.repository.js";
+import { RevisionService } from "./manuscripts/revision.service.js";
+import { RevisionsRepository } from "./manuscripts/revisions.repository.js";
+import { RoundService } from "./flows/rounds.service.js";
 import { CorpusService, plagiarismProviderFactory } from "./plagiarism/plagiarism.provider.js";
 import { PublicController } from "./public/public.controller.js";
 import { SeedService } from "./seed/seed.service.js";
@@ -65,6 +68,7 @@ export class AppModule {
         UsersRepository,
         JournalsRepository,
         ManuscriptsRepository,
+        RevisionsRepository,
         AuthService,
         IdentityService,
         VerificationService,
@@ -82,7 +86,9 @@ export class AppModule {
         { provide: ZK_PROVER, inject: [APP_CONFIG], useFactory: (c: AppConfig) => new HttpZkProver(c.zkUrl) },
         { provide: SHUFFLE, useValue: cryptoShuffle },
         SelectionService,
+        RoundService,
         ProgressService,
+        RevisionService,
         EditorialService,
         ReviewsService,
         ProjectionService,

@@ -231,7 +231,7 @@ try {
   // ================================================================ P07 reveal
   console.log("\n--- P07: reveal dan keputusan");
   const r0 = reviewerInvites[0];
-  const pending = (r0.m as any).pendingReviews.get(sid.toLowerCase());
+  const pending = r0.m.pendingFor(r0.invite)!;
   const probeText = "isi telaah yang diganti setelah commit";
   await expectError("reveal dengan isi telaah berbeda dari yang di-commit: 400 (tidak diunggah)", async () => {
     pending.text = probeText;

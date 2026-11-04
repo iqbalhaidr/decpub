@@ -18,6 +18,8 @@ export interface Invitation {
   proofUri: string;
   createdAt: string;
   acceptedAt: string | null;
+  /** Terisi bila batch-nya ditinggalkan karena tidak ada reveal (M5). */
+  voidedAt: string | null;
 }
 
 const fromRow = (r: Row): Invitation => ({
@@ -34,6 +36,7 @@ const fromRow = (r: Row): Invitation => ({
   proofUri: r.proof_uri as string,
   createdAt: r.created_at as string,
   acceptedAt: (r.accepted_at as string | null) ?? null,
+  voidedAt: (r.voided_at as string | null) ?? null,
 });
 
 export interface SessionCriteria {
@@ -47,7 +50,7 @@ export interface SessionCriteria {
 export class InvitationsRepository {
   constructor(private readonly db: DatabaseService) {}
 
-  insert(i: Omit<Invitation, "id" | "createdAt" | "acceptedAt">): Invitation {
+  insert(i: Omit<Invitation, "id" | "createdAt" | "acceptedAt" | "voidedAt">): Invitation {
     const id = randomUUID();
     this.db.run(
       `INSERT INTO invitations (id, session_id, role, slot, user_id, invite_salt, assignment_commitment,
@@ -89,8 +92,21 @@ export class InvitationsRepository {
       .map(fromRow);
   }
 
-  forBatch(sessionId: string, slot: number): Invitation[] {
-    return this.db.all("SELECT * FROM invitations WHERE session_id = ? AND role = 'reviewer' AND slot = ? ORDER BY rowid", sessionId.toLowerCase(), slot).map(fromRow);
+  /** Undangan penelaah sebuah batch. Yang batch-nya ditinggalkan (voided) tidak ikut, kecuali diminta. */
+  forBatch(sessionId: string, slot: number, opts: { includeVoided?: boolean } = {}): Invitation[] {
+    const voided = opts.includeVoided ? "" : "AND voided_at IS NULL";
+    return this.db
+      .all(`SELECT * FROM invitations WHERE session_id = ? AND role = 'reviewer' AND slot = ? ${voided} ORDER BY rowid`, sessionId.toLowerCase(), slot)
+      .map(fromRow);
+  }
+
+  /** Menandai batch ditinggalkan (tidak ada reveal). Undangannya tetap ada supaya orangnya tidak dipilih lagi. */
+  voidMany(ids: string[]): void {
+    for (const id of ids) this.db.run("UPDATE invitations SET voided_at = ? WHERE id = ? AND voided_at IS NULL", new Date().toISOString(), id);
+  }
+
+  unvoidMany(ids: string[]): void {
+    for (const id of ids) this.db.run("UPDATE invitations SET voided_at = NULL WHERE id = ?", id);
   }
 
   /** Membatalkan undangan yang gagal dicatat on-chain, supaya kandidat tidak terhitung "sudah diundang". */

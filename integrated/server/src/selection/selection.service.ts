@@ -62,10 +62,14 @@ export class SelectionService {
     return this.users.listByRole("editor").filter((u) => u.identityCommitment && u.verifiedFields.includes(categorySlug));
   }
 
-  /** Penelaah yang memenuhi syarat: bidang masuk kriteria, bukan penulis, belum diundang di sesi ini. */
-  reviewerCandidates(sessionId: string, fields: readonly string[], authorUserId: string): User[] {
+  /**
+   * Penelaah yang memenuhi syarat: bidang masuk kriteria, bukan penulis, dan tidak termasuk `exclude`.
+   * Bila `exclude` tidak diberikan, yang sudah diundang di sesi ini (semua ronde) dikecualikan. Penggerak
+   * ronde (M5) memberi `exclude` sendiri: ronde baru setelah revisi Major boleh memilih ulang orang lama.
+   */
+  reviewerCandidates(sessionId: string, fields: readonly string[], authorUserId: string, exclude?: ReadonlySet<string>): User[] {
     const wanted = new Set(canonicalCriteria(fields).fields);
-    const already = new Set(this.invitations.forSession(sessionId, "reviewer").map((i) => i.userId));
+    const already = exclude ?? new Set(this.invitations.forSession(sessionId, "reviewer").map((i) => i.userId));
     return this.users
       .listByRole("reviewer")
       .filter((u) => u.identityCommitment && u.id !== authorUserId && !already.has(u.id) && u.verifiedFields.some((f) => wanted.has(f)));
@@ -80,11 +84,28 @@ export class SelectionService {
   }
 
   /**
-   * Memilih `count` penelaah acak dan menyiapkan undangannya (belum dicatat on-chain).
+   * Memilih `count` penelaah dan menyiapkan undangannya (belum dicatat on-chain).
+   *
+   *  - `prefer`: pengguna yang didahulukan bila masih memenuhi syarat (revisi Minor mengundang orang
+   *    yang sama, keputusan B3). Kekurangannya diisi acak dari kandidat lain.
+   *  - `exclude`: pengguna yang tidak boleh dipilih (peserta ronde yang sama: zona abu-abu, pengganti no-show).
+   *
    * Melempar 409 bila kandidat kurang dari `count`: seleksi tidak boleh diam-diam lebih kecil.
    */
-  async inviteReviewers(sessionId: Hex, fields: readonly string[], count: number, slot: number, authorUserId: string): Promise<Invitation[]> {
-    const pool = this.shuffle(this.reviewerCandidates(sessionId, fields, authorUserId));
+  async inviteReviewers(
+    sessionId: Hex,
+    fields: readonly string[],
+    count: number,
+    slot: number,
+    authorUserId: string,
+    opts: { prefer?: readonly string[]; exclude?: ReadonlySet<string> } = {},
+  ): Promise<Invitation[]> {
+    const eligible = this.reviewerCandidates(sessionId, fields, authorUserId, opts.exclude);
+    const byId = new Map(eligible.map((u) => [u.id, u]));
+    const preferred = (opts.prefer ?? []).map((id) => byId.get(id)).filter((u): u is User => Boolean(u));
+    const preferredIds = new Set(preferred.map((u) => u.id));
+    const others = this.shuffle(eligible.filter((u) => !preferredIds.has(u.id)));
+    const pool = [...preferred, ...others];
     if (pool.length < count) {
       throw new ConflictException(`Kandidat penelaah tidak cukup: butuh ${count}, tersedia ${pool.length} untuk bidang ${fields.join(", ")}`);
     }

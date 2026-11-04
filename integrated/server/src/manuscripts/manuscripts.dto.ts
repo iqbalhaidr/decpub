@@ -44,3 +44,25 @@ export class IntakeDto {
   @ApiProperty({ type: "string", format: "binary", required: false })
   file?: unknown;
 }
+
+/** Field form multipart `POST /manuscripts/:id/revisions/intake` (berkas di field `file`). Semua opsional: bawaannya revisi sebelumnya. */
+export class RevisionIntakeDto {
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  @IsNotEmpty()
+  @MaxLength(300)
+  title?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  @MaxLength(5000)
+  abstract?: string;
+
+  @ApiPropertyOptional({ description: "Dipisah koma" })
+  @IsOptional()
+  @Transform(({ value }) => (typeof value === "string" ? value.split(",").map((s: string) => s.trim()).filter(Boolean) : value))
+  @IsString({ each: true })
+  keywords?: string[];
+}

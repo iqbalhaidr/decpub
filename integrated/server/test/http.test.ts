@@ -231,3 +231,25 @@ describe("P05-P07: akses dan validasi permintaan", () => {
     assert.equal((await call("/system/sessions/xyz/progress", { method: "POST" })).status, 404);
   });
 });
+
+describe("M5: revisi dan penutupan fase", () => {
+  const SID = "0x" + "11".repeat(32);
+  it("tutup fase hanya untuk admin; identifier tidak sah 404", async () => {
+    assert.equal((await call(`/admin/sessions/${SID}/close-phase`, { method: "POST" })).status, 401);
+    assert.equal((await call(`/admin/sessions/${SID}/close-phase`, { token: await login("rev1@mail.com", "rev1"), method: "POST" })).status, 403);
+    assert.equal((await call(`/admin/sessions/${SID}/close-phase`, { token: await login("editor@desci.local", "editor123"), method: "POST" })).status, 403);
+    assert.equal((await call("/admin/sessions/xyz/close-phase", { token: await login("admin@desci.local", "admin123"), method: "POST" })).status, 404);
+  });
+  it("intake revisi dan pengajuan revisi menuntut login; aksi divalidasi", async () => {
+    assert.equal((await call("/manuscripts/x/revisions/intake", { method: "POST", form: new FormData() })).status, 401);
+    const t = await login("author1@mail.com", "author1");
+    assert.equal((await call("/manuscripts/tidak-ada/revisions/intake", { token: t, method: "POST", form: new FormData() })).status, 400, "berkas wajib");
+    const form = new FormData();
+    form.append("file", new Blob([new Uint8Array([1, 2, 3])]), "x.pdf");
+    assert.equal((await call("/manuscripts/tidak-ada/revisions/intake", { token: t, method: "POST", form })).status, 404);
+    assert.equal((await call("/flows/revision", { json: {} })).status, 401);
+    const bad = await call("/flows/revision", { token: t, json: { manuscriptId: "m", action: { sessionId: SID, pseudonym: "x", nonce: "0" }, signature: "0x12" } });
+    assert.equal(bad.status, 400);
+  });
+});
+

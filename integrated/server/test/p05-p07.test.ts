@@ -28,6 +28,7 @@ import { InvitationsRepository } from "../src/selection/invitations.repository.j
 import { DbInviteChannel } from "../src/selection/invite-channel.js";
 import { SelectionService } from "../src/selection/selection.service.js";
 import { ProgressService } from "../src/flows/progress.service.js";
+import { RoundService } from "../src/flows/rounds.service.js";
 import { ReviewsService } from "../src/flows/reviews.service.js";
 import { EditorialService } from "../src/flows/editorial.service.js";
 import { CommitDto } from "../src/flows/assignments.dto.js";
@@ -223,7 +224,7 @@ describe("ProgressService (langkah sistem P05-P08)", () => {
     const selection = { inviteEditor: async (_s: Hex, cat: string) => void selectionCalls.push(cat) };
     const manuscripts = { bySession: () => ({ journalId: 1, ownerUserId: "o" }) };
     const journals = { get: () => ({ categorySlug: "ai" }) };
-    const progress = new ProgressService(gateway, reader as never, selection as never, invitations, manuscripts as never, journals as never);
+    const progress = new ProgressService(gateway, reader as never, selection as never, invitations, manuscripts as never, journals as never, new RoundService(reader as never, invitations));
     return { progress, gateway, selectionCalls };
   }
   const phases = (g: { calls: { fn: string; args: unknown[] }[] }) => g.calls.filter((c) => c.fn === "setReviewPhase").map((c) => c.args[1]);

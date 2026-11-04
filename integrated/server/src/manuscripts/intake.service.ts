@@ -76,22 +76,9 @@ export class IntakeService {
     // PDF yang tak bisa dibaca ditolak di sini, sebelum menyentuh chain: tidak ada sesi, tidak ada APC terpakai.
     if (!(await readPdfInfo(original)).readable) throw new BadRequestException("PDF tidak bisa dibaca atau rusak");
 
-    // Anonimisasi (P04) dihitung sekarang agar hash dan CID-nya bisa dicatat di P02.
-    const anon = await anonymizePdf(original);
-    const anonCid = await this.storage.cidOf(anon.bytes);
+    const { anon, anonCid, publicMetadataBytes, metadataCid } = await this.prepare(original, journal, input);
     const abstract = input.abstract ?? "";
     const keywords = input.keywords ?? [];
-
-    const publicMetadata: PublicMetadata = {
-      schema: "decpub.public-metadata.v1",
-      title: input.title,
-      abstract,
-      keywords,
-      journal: { id: journal.id, name: journal.name, category: journal.categorySlug },
-      anonymizedManuscript: { cid: anonCid, size: anon.bytes.length, sha256: sha256Hex(anon.bytes) },
-    };
-    const publicMetadataBytes = new TextEncoder().encode(JSON.stringify(publicMetadata));
-    const metadataCid = await this.storage.cidOf(publicMetadataBytes);
 
     const identity: MetadataRecord = {
       title: input.title,
@@ -130,5 +117,30 @@ export class IntakeService {
     const warnings: string[] = [];
     if (this.config.escrowRequired) warnings.push("ESCROW_REQUIRED aktif, tetapi pengikatan APC baru ada di M7");
     return { ...row, warnings };
+  }
+
+  /**
+   * Menghitung artefak anonim sebuah berkas: PDF anonim, CID-nya, dan metadata publik beserta CID.
+   * Dipakai intake awal dan intake revisi (M5): keduanya harus menghasilkan nilai yang dicatat on-chain.
+   */
+  async prepare(
+    original: Uint8Array,
+    journal: { id: number; name: string; categorySlug: string },
+    input: Pick<IntakeInput, "title" | "abstract" | "keywords">,
+  ) {
+    // Anonimisasi (P04) dihitung sekarang agar hash dan CID-nya bisa dicatat on-chain sebelum diunggah.
+    const anon = await anonymizePdf(original);
+    const anonCid = await this.storage.cidOf(anon.bytes);
+    const publicMetadata: PublicMetadata = {
+      schema: "decpub.public-metadata.v1",
+      title: input.title,
+      abstract: input.abstract ?? "",
+      keywords: input.keywords ?? [],
+      journal: { id: journal.id, name: journal.name, category: journal.categorySlug },
+      anonymizedManuscript: { cid: anonCid, size: anon.bytes.length, sha256: sha256Hex(anon.bytes) },
+    };
+    const publicMetadataBytes = new TextEncoder().encode(JSON.stringify(publicMetadata));
+    const metadataCid = await this.storage.cidOf(publicMetadataBytes);
+    return { anon, anonCid, publicMetadataBytes, metadataCid };
   }
 }
