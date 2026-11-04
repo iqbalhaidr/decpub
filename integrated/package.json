@@ -5,16 +5,27 @@
   "description": "Integrasi tiga tugas akhir (Ciko, Hugo, Roihan) menjadi satu sistem publikasi ilmiah.",
   "type": "module",
   "workspaces": [
-    "contracts"
+    "contracts",
+    "packages/*",
+    "services/*"
   ],
   "scripts": {
     "chain": "npm run node -w contracts",
     "compile": "npm run compile -w contracts",
     "deploy:local": "npm run deploy:local -w contracts",
     "check-wiring": "npm run check-wiring -w contracts",
-    "test:contracts": "npm run test -w contracts"
+    "test:contracts": "npm run test -w contracts",
+    "storage": "npm run start -w services/storage-sim",
+    "test:storage": "npm run test -w packages/shared && npm run test -w services/storage-sim",
+    "typecheck": "npm run typecheck -w packages/shared && npm run typecheck -w services/storage-sim",
+    "demo:m1": "node --import tsx scripts/milestones/m1.ts"
   },
   "engines": {
     "node": ">=22"
+  },
+  "devDependencies": {
+    "tsx": "^4.19.0",
+    "typescript": "~5.8.0",
+    "@types/node": "^22.8.5"
   }
 }
