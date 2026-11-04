@@ -10,6 +10,9 @@
  *   UnderReview / Commit     semua sudah commit  -> fase Reveal
  *   UnderReview / Reveal     semua sudah reveal  -> fase Closed, decideBatch
  *   Accepted                                     -> Published
+ *   Published / Rejected, ada keputusan          -> penyelesaian insentif otomatis (M7): QoS, bobot, `executeDistribution`
+ *
+ * Gerbang escrow (M7): bila ESCROW_REQUIRED dan APC belum terikat, atau APC sudah di-refund, sesi tidak dimajukan.
  *
  * Cabang M5 (semua dibaca dari chain, tanpa state tambahan):
  *   MinorRevisionRequired / MajorRevisionRequired   menunggu penulis (`RevisionService`); sistem diam
@@ -35,6 +38,8 @@ import {
   inviteRef,
 } from "@decpub/shared";
 import { GatewayService } from "../chain/gateway.service.js";
+import { EscrowGate } from "../escrow/escrow-gate.js";
+import { IncentiveService } from "../incentive/incentive.service.js";
 import { SessionReader } from "../chain/session-reader.service.js";
 import { JournalsRepository } from "../journals/journals.repository.js";
 import { ManuscriptsRepository } from "../manuscripts/manuscripts.repository.js";
@@ -64,6 +69,8 @@ export class ProgressService {
     private readonly manuscripts: ManuscriptsRepository,
     private readonly journals: JournalsRepository,
     private readonly rounds: RoundService,
+    private readonly incentive: IncentiveService,
+    private readonly gate: EscrowGate,
   ) {}
 
   /** Menjalankan langkah sistem untuk satu sesi; permintaan bersamaan untuk sesi yang sama berurutan. */
@@ -81,6 +88,11 @@ export class ProgressService {
 
   private async run(sessionId: Hex, actions: string[]): Promise<ProgressResult> {
     const blocked: { reason: string | null } = { reason: null };
+    const verdict = await this.gate.check(sessionId);
+    if (!verdict.proceed) {
+      if (verdict.refunded) await this.closeRefunded(sessionId, actions);
+      return { sessionId, status: (await this.reader.getSession(sessionId)).status, actions, blocked: verdict.reason };
+    }
     for (let guard = 0; guard < 12; guard++) {
       const s = await this.reader.getSession(sessionId);
       let progressed = false;
@@ -96,6 +108,10 @@ export class ProgressService {
           break;
         case PublicationStatus.Accepted:
           progressed = await this.publish(sessionId, actions);
+          break;
+        case PublicationStatus.Published:
+        case PublicationStatus.Rejected:
+          progressed = await this.settle(sessionId, actions, blocked);
           break;
         default:
           break; // termasuk Minor/MajorRevisionRequired: menunggu penulis
@@ -361,6 +377,57 @@ export class ProgressService {
   }
 
   // ---------------------------------------------------------------- P08
+
+  /**
+   * Penyelesaian insentif otomatis saat status final dan ada keputusan penelaah. Kegagalan (mis. storage mati)
+   * tidak menggagalkan publikasi: dilaporkan di `blocked` dan dicoba lagi pada pemanggilan berikutnya.
+   * Tanpa escrow terikat atau tanpa keputusan, `settle` melewati (mis. desk reject tanpa penelaah: refund).
+   */
+  private async settle(sessionId: Hex, actions: string[], blocked: { reason: string | null }): Promise<boolean> {
+    try {
+      const r = await this.incentive.settle(sessionId);
+      if (r.outcome === "distributed") {
+        actions.push(`P08: imbalan didistribusikan ke ${r.reviewers} pseudonim, laporan QoS ${r.reportCid} (hash dicatat on-chain)`);
+      }
+    } catch (e) {
+      const msg = (e as { response?: { message?: string } }).response?.message ?? (e as Error).message;
+      blocked.reason = `Penyelesaian insentif tertunda: ${msg}`;
+      this.log.warn(`Sesi ${sessionId}: ${blocked.reason}`);
+    }
+    return false;
+  }
+
+  /**
+   * Menghentikan sesi Ciko setelah APC di-refund. Kontrak Hugo tidak bisa mengubah status, dan refund karena
+   * timeout bisa terjadi saat sesi masih berjalan; tanpa penutupan sesi bisa lanjut tanpa dana (penelaah tak dibayar).
+   * Jalur penutupan mengikuti `_isValidTransition`: status yang punya transisi ke Rejected langsung, AssigningReviewers
+   * lewat UnderReview. Status `*RevisionRequired` tidak punya jalur; sesi dibiarkan menunggu (gerbang tetap menghentikannya).
+   */
+  closeAfterRefund(sessionId: Hex): Promise<string[]> {
+    return this.serialize(sessionId, async () => {
+      const actions: string[] = [];
+      await this.closeRefunded(sessionId, actions);
+      return actions;
+    });
+  }
+
+  private async closeRefunded(sessionId: Hex, actions: string[]): Promise<void> {
+    const s = await this.reader.getSession(sessionId);
+    const S = PublicationStatus;
+    if (s.statusValue === S.Rejected || s.statusValue === S.Published || s.statusValue === S.Accepted) return;
+    try {
+      if (s.statusValue === S.MinorRevisionRequired || s.statusValue === S.MajorRevisionRequired) {
+        actions.push(`APC di-refund; sesi ${s.status} tidak bisa ditutup (kontrak tidak punya transisi ke Rejected), sesi dihentikan di server`);
+        return;
+      }
+      if (s.statusValue === S.AssigningReviewers) await this.gateway.updateStatus(sessionId, S.UnderReview);
+      await this.gateway.updateStatus(sessionId, S.Rejected);
+      actions.push(`APC di-refund; sesi ditutup (${s.status} -> Rejected)`);
+    } catch (e) {
+      const msg = (e as { response?: { message?: string } }).response?.message ?? (e as Error).message;
+      actions.push(`APC di-refund; sesi gagal ditutup (${msg})`);
+    }
+  }
 
   private async publish(sessionId: Hex, actions: string[]): Promise<boolean> {
     await this.gateway.updateStatus(sessionId, PublicationStatus.Published);

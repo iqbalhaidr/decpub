@@ -35,6 +35,7 @@ import { extractPdfText } from "../../server/src/pdf/pdf-text.ts";
 import { Api, ApiError } from "../lib/api.ts";
 import { scanChain } from "../lib/chain-scan.ts";
 import { Member, type Invite } from "../lib/member.ts";
+import { ClientChain } from "../lib/client-chain.ts";
 import { startServices } from "../lib/services.ts";
 
 let failed = 0;
@@ -68,6 +69,8 @@ const gatewayAddr = contractAddress(deployments, "ActionGateway");
 
 console.log(`demo:m4  jaringan ${deployments.network} (chainId ${deployments.chainId})  [SIMULASI: ZK, storage, plagiarisme, undangan]`);
 const services = await startServices({ verbose: process.env.VERBOSE === "1" });
+// M7: escrow APC wajib. Klien membeli dan mengikat note otomatis saat mengajukan naskah (lihat Member.submitManuscript).
+Member.chain = await ClientChain.connect();
 console.log(`layanan: server ${services.urls.server}  storage ${services.urls.storage}  zk ${services.urls.zk}\n`);
 
 // Merekam isi semua permintaan POST klien ke server (untuk membuktikan apa yang TIDAK dikirim).

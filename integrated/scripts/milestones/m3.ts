@@ -40,6 +40,7 @@ import { SAMPLE_DEFAULTS } from "../../server/src/pdf/samples.ts";
 import { Api, ApiError } from "../lib/api.ts";
 import { scanChain } from "../lib/chain-scan.ts";
 import { Member } from "../lib/member.ts";
+import { ClientChain } from "../lib/client-chain.ts";
 import { startServices } from "../lib/services.ts";
 
 let failed = 0;
@@ -73,6 +74,8 @@ const gatewayAddr = contractAddress(deployments, "ActionGateway");
 
 console.log(`demo:m3  jaringan ${deployments.network} (chainId ${deployments.chainId})  [SIMULASI: ZK, storage, plagiarisme]`);
 const services = await startServices({ verbose: process.env.VERBOSE === "1" });
+// M7: escrow APC wajib. Klien membeli dan mengikat note otomatis saat mengajukan naskah (lihat Member.submitManuscript).
+Member.chain = await ClientChain.connect();
 console.log(`layanan: server ${services.urls.server}  storage ${services.urls.storage}  zk ${services.urls.zk}\n`);
 
 try {
@@ -86,7 +89,7 @@ try {
   console.log("--- P01 akun, identitas, kredensial");
   check("Swagger tersedia di /api", (await fetch(`${services.urls.server}/api`)).ok);
   const cfg = await api.get("/config");
-  check("/config memuat alamat ActionGateway dan mode escrow nonaktif", eqHex(cfg.contracts.ActionGateway, gatewayAddr) && cfg.escrowRequired === false);
+  check("/config memuat alamat ActionGateway dan mode escrow wajib (M7)", eqHex(cfg.contracts.ActionGateway, gatewayAddr) && cfg.escrowRequired === true);
   const journals = await api.get("/journals");
   check("katalog: 7 jurnal, 5 kategori, APC 0,01 ETH", journals.journals.length === 7 && journals.categories.length === 5 && journals.journals[0].apcWei === "10000000000000000");
 

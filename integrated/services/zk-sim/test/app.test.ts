@@ -20,6 +20,10 @@ import {
   noteBindNullifier,
   noteCommitment,
   noteRefundNullifier,
+  reputationBucketNullifier,
+  reputationClaimNullifier,
+  reputationId,
+  claimableReputation,
   issueRoleCredential,
   proofDigest,
   signals,
@@ -40,7 +44,14 @@ const registered = new Set<string>();
 const notes = new Set<string>();
 const spent = new Set<string>();
 const bound = new Map<string, Hex>();
+/** ReputationSBT dan IncentiveEngine palsu: saldo per reputationId, kredit per sesi+pseudonim, nullifier klaim terpakai. */
+const balances = new Map<string, bigint>();
+const credits = new Map<string, bigint>();
+const claimed = new Set<string>();
 const chain = {
+  effectiveBalance: async (id: Hex) => balances.get(id.toLowerCase()) ?? 0n,
+  isReputationNullifierUsed: async (n: Hex) => claimed.has(n.toLowerCase()),
+  reputationCredit: async (sid: Hex, p: Hex) => credits.get(`${sid}:${p}`.toLowerCase()) ?? null,
   isIdentityRegistered: async (c: Hex) => registered.has(c.toLowerCase()),
   isNoteDeposited: async (c: Hex) => notes.has(c.toLowerCase()),
   isNullifierUsed: async (n: Hex) => spent.has(n.toLowerCase()),
@@ -268,12 +279,37 @@ describe("zk-sim lainnya", () => {
     const res = await fetch(`${base}/prove`, {
       method: "POST",
       headers: { "content-type": "application/json" },
-      body: JSON.stringify({ kind: ZkKind.ReputationBucket, witness: {}, publicSignals: [SESSION] }),
+      body: JSON.stringify({ kind: ZkKind.SelectiveDisclosure, witness: {}, publicSignals: [SESSION] }),
     });
     assert.equal(res.status, 501);
     const body = (await res.json()) as { error: string; message: string };
     assert.equal(body.error, "NOT_IMPLEMENTED");
-    assert.match(body.message, /M7/);
+    assert.match(body.message, /M8/);
+  });
+
+  it("reputation proofs answer 501 REPUTATION_NOT_CONFIGURED when zk-sim has no ReputationSBT", async () => {
+    const app = createZkApp({
+      attestorPrivateKey: ATTESTOR_KEY,
+      chainId: CHAIN_ID,
+      verifier: VERIFIER,
+      issuer: privateKeyToAccount(ISSUER_KEY).address,
+      chain: { isIdentityRegistered: async () => true },
+    });
+    const srv: Server = await new Promise((r) => {
+      const x = app.listen(0, "127.0.0.1", () => r(x));
+    });
+    try {
+      const p = new HttpZkProver(`http://127.0.0.1:${(srv.address() as AddressInfo).port}`);
+      const secret = generateSecret();
+      const d = deriveEphemeral(secret, SESSION, Role.Reviewer, 1);
+      await expectRejected(
+        p.prove(ZkKind.ReputationBucket, { secret, slot: 1 }, signals.reputationBucket(SESSION, d.pseudonym, 0, reputationBucketNullifier(secret, SESSION, 1))),
+        "REPUTATION_NOT_CONFIGURED",
+        501,
+      );
+    } finally {
+      srv.close();
+    }
   });
 
   it("note proofs answer 501 ESCROW_NOT_CONFIGURED when zk-sim has no EscrowPool", async () => {
@@ -471,5 +507,103 @@ describe("zk-sim NOTE_REFUND", () => {
     } catch (e) {
       assert.equal((e as Error).message.includes(intruder.slice(2)), false);
     }
+  });
+});
+
+describe("zk-sim REPUTATION_BUCKET", () => {
+  const E18 = 10n ** 18n;
+  const setup = (balance: bigint) => {
+    const secret = generateSecret();
+    balances.set(reputationId(secret).toLowerCase(), balance);
+    const d = deriveEphemeral(secret, SESSION, Role.Reviewer, 1);
+    return { secret, d, nullifier: reputationBucketNullifier(secret, SESSION, 1) };
+  };
+  const sig = (s: ReturnType<typeof setup>, tier: number) => signals.reputationBucket(SESSION, s.d.pseudonym, tier, s.nullifier);
+
+  it("proves the tier that matches the on-chain balance (rounded down), for every tier", async () => {
+    for (const [bal, tier] of [[0n, 0], [E18 / 5n, 0], [E18 / 4n, 1], [(E18 * 6n) / 10n, 2], [(E18 * 99n) / 100n, 3], [E18, 4], [E18 * 7n, 4]] as const) {
+      const s = setup(bal);
+      const proof = await prover.prove(ZkKind.ReputationBucket, { secret: s.secret, slot: 1 }, sig(s, tier));
+      assert.equal(proof.kind, ZkKind.ReputationBucket);
+    }
+  });
+
+  it("rejects a tier above or below the real balance", async () => {
+    const s = setup((E18 * 3n) / 10n); // tier 1
+    await expectRejected(prover.prove(ZkKind.ReputationBucket, { secret: s.secret, slot: 1 }, sig(s, 3)), "TIER_MISMATCH");
+    await expectRejected(prover.prove(ZkKind.ReputationBucket, { secret: s.secret, slot: 1 }, sig(s, 0)), "TIER_MISMATCH");
+    await expectRejected(prover.prove(ZkKind.ReputationBucket, { secret: s.secret, slot: 1 }, sig(s, 9)), "BAD_REQUEST", 400);
+  });
+
+  it("rejects a pseudonym or nullifier that does not derive from the secret", async () => {
+    const s = setup(0n);
+    const other = setup(E18);
+    await expectRejected(prover.prove(ZkKind.ReputationBucket, { secret: other.secret, slot: 1 }, sig(s, 0)), "PSEUDONYM_MISMATCH");
+    await expectRejected(prover.prove(ZkKind.ReputationBucket, { secret: s.secret, slot: 2 }, sig(s, 0)), "PSEUDONYM_MISMATCH");
+    const bad = signals.reputationBucket(SESSION, s.d.pseudonym, 0, ("0x" + "ab".repeat(32)) as Hex);
+    await expectRejected(prover.prove(ZkKind.ReputationBucket, { secret: s.secret, slot: 1 }, bad), "NULLIFIER_MISMATCH");
+  });
+
+  it("cannot borrow another identity's reputation: the secret fixes both pseudonym and balance", async () => {
+    const rich = setup(E18);
+    const poor = setup(0n);
+    // poor mencoba menyatakan tingkat 4 untuk pseudonimnya sendiri memakai secret rich: pseudonim tidak cocok.
+    await expectRejected(prover.prove(ZkKind.ReputationBucket, { secret: rich.secret, slot: 1 }, sig(poor, 4)), "PSEUDONYM_MISMATCH");
+  });
+});
+
+describe("zk-sim REPUTATION_CLAIM", () => {
+  const E18 = 10n ** 18n;
+  const setup = (credit: bigint | null) => {
+    const secret = generateSecret();
+    const d = deriveEphemeral(secret, SESSION, Role.Reviewer, 1);
+    if (credit !== null) credits.set(`${SESSION}:${d.pseudonym}`.toLowerCase(), credit);
+    return { secret, d, repId: reputationId(secret), nullifier: reputationClaimNullifier(secret, SESSION, 1) };
+  };
+  const witness = (s: ReturnType<typeof setup>) => ({ secret: s.secret, sessionId: SESSION, slot: 1 });
+
+  it("proves the credit rounded DOWN to a multiple of 0.25, without naming pseudonym or session in the signals", async () => {
+    for (const credit of [E18 / 4n, (E18 * 87n) / 100n, E18 - 1n, E18, (E18 * 19n) / 10n]) {
+      const s = setup(credit);
+      const amount = claimableReputation(credit);
+      const sig = signals.reputationClaim(s.repId, amount, s.nullifier);
+      const proof = await prover.prove(ZkKind.ReputationClaim, witness(s), sig);
+      assert.deepEqual(proof.publicSignals, sig);
+      assert.ok(!JSON.stringify(proof).includes(s.d.pseudonym.slice(2).toLowerCase()), "pseudonym tidak ada di bukti");
+    }
+  });
+
+  it("rejects an amount above or below the claimable credit, and credits below one step", async () => {
+    const s = setup((E18 * 87n) / 100n); // boleh 0,75
+    const up = signals.reputationClaim(s.repId, E18, s.nullifier);
+    await expectRejected(prover.prove(ZkKind.ReputationClaim, witness(s), up), "AMOUNT_MISMATCH");
+    const down = signals.reputationClaim(s.repId, E18 / 2n, s.nullifier);
+    await expectRejected(prover.prove(ZkKind.ReputationClaim, witness(s), down), "AMOUNT_MISMATCH");
+    const tiny = setup((E18 * 24n) / 100n);
+    await expectRejected(prover.prove(ZkKind.ReputationClaim, witness(tiny), signals.reputationClaim(tiny.repId, E18 / 4n, tiny.nullifier)), "NOTHING_CLAIMABLE");
+  });
+
+  it("rejects a secret without credit, a foreign reputationId, a wrong nullifier, and a claim already minted", async () => {
+    const none = setup(null);
+    await expectRejected(prover.prove(ZkKind.ReputationClaim, witness(none), signals.reputationClaim(none.repId, E18 / 4n, none.nullifier)), "NO_CREDIT");
+
+    const s = setup(E18);
+    const foreign = reputationId(generateSecret());
+    await expectRejected(prover.prove(ZkKind.ReputationClaim, witness(s), signals.reputationClaim(foreign, E18, s.nullifier)), "REPUTATION_ID_MISMATCH");
+    await expectRejected(prover.prove(ZkKind.ReputationClaim, witness(s), signals.reputationClaim(s.repId, E18, ("0x" + "cd".repeat(32)) as Hex)), "NULLIFIER_MISMATCH");
+
+    claimed.add(s.nullifier.toLowerCase());
+    await expectRejected(prover.prove(ZkKind.ReputationClaim, witness(s), signals.reputationClaim(s.repId, E18, s.nullifier)), "ALREADY_CLAIMED");
+  });
+
+  it("someone else's secret cannot claim this credit (pseudonym derives from the secret)", async () => {
+    const owner = setup(E18);
+    const thief = generateSecret();
+    const w = { secret: thief, sessionId: SESSION, slot: 1 };
+    await expectRejected(
+      prover.prove(ZkKind.ReputationClaim, w, signals.reputationClaim(reputationId(thief), E18, reputationClaimNullifier(thief, SESSION, 1))),
+      "NO_CREDIT",
+    );
+    void owner;
   });
 });

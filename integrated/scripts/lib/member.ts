@@ -7,6 +7,15 @@
 import type { Address, Hex } from "viem";
 import {
   DeskDecision,
+  claimableReputation,
+  generateNoteSecret,
+  noteBindNullifier,
+  noteRefundNullifier,
+  reputationBucketNullifier,
+  reputationClaimNullifier,
+  reputationId,
+  reputationTier,
+  signClaimReward,
   HttpZkProver,
   Role,
   ZkKind,
@@ -33,6 +42,7 @@ import {
 import { keccak256 } from "viem";
 import { randomBytes } from "node:crypto";
 import { Api } from "./api.js";
+import type { ClientChain } from "./client-chain.js";
 
 export interface Credentials {
   identityCommitment: Hex;
@@ -40,8 +50,23 @@ export interface Credentials {
   fields: Record<string, Hex>;
 }
 
+export interface NoteInfo {
+  secret: Hex;
+  depositTx: Hex;
+  payer: Address;
+}
+
 export class Member {
+  /**
+   * Akses chain sisi klien (dompet penyetor, saldo reputasi). Diisi sekali oleh demo/skenario. Bila terisi, pengajuan
+   * naskah otomatis membeli dan mengikat note APC bila server mewajibkan escrow, dan penerimaan undangan penelaah
+   * menyatakan tingkat reputasi. Tanpa ini, perilaku klien sama seperti M3-M5 (tanpa escrow).
+   */
+  static chain?: ClientChain;
   readonly secret: Hex = generateSecret();
+  /** Note yang dimiliki, belum dan sudah terikat. Rahasia note hanya di klien (arsitektur A2). */
+  readonly notes: NoteInfo[] = [];
+  private readonly noteOfSession = new Map<string, NoteInfo>();
   api: Api;
   credentials?: Credentials;
 
@@ -156,17 +181,22 @@ export class Member {
     return { pseudonym: ps, accepted };
   }
 
-  /** Penelaah menerima undangan: pseudonim Reviewer (slot = nomor batch), bukti, lalu pengikatan. */
+  /**
+   * Penelaah menerima undangan: pseudonim Reviewer (slot = nomor batch), bukti, lalu pengikatan.
+   * Dengan `Member.chain`, tingkat reputasi (q4) dinyatakan SEBELUM pengikatan: pengikatan terakhir bisa memicu
+   * langkah sistem berikutnya (membuka fase Commit), dan tingkat tidak bisa lagi dinyatakan setelah distribusi.
+   */
   async acceptReviewerInvite(invite: Invite) {
     const ps = await this.createPseudonym(invite.sessionId, Role.Reviewer, invite.slot);
     const proof = await this.ownershipProof(invite, ps.pseudonym);
+    const tier = Member.chain ? await this.declareReputationTier(invite) : undefined;
     const bound = await this.anon().post("/flows/assignments/bind", {
       sessionId: invite.sessionId,
       assignmentCommitment: invite.assignmentCommitment,
       pseudonym: ps.pseudonym,
       proof: proof.proof,
     });
-    return { pseudonym: ps, bound };
+    return { pseudonym: ps, bound, tier };
   }
 
   /** Editor mengirim putusan penyaringan bertanda tangan pseudonim Editor. */
@@ -316,13 +346,111 @@ export class Member {
     return this.api.post<RevisionResult>("/flows/revision", body);
   }
 
-  /** Alur penulis lengkap: intake -> pseudonim -> tanda tangan -> pengajuan. */
+  /**
+   * Alur penulis lengkap: intake -> pseudonim -> tanda tangan -> pengajuan. Bila server mewajibkan escrow dan
+   * `Member.chain` tersedia, APC diikat setelahnya dan balasan `advance` berasal dari langkah sistem yang menunggu APC.
+   */
   async submitManuscript(pdf: Uint8Array, f: Parameters<Member["intake"]>[1]) {
     const intake = await this.intake(pdf, f);
     const ps = await this.createPseudonym(intake.sessionId, Role.Author);
     const signed = await this.signCreateSession(intake, ps.privateKey, ps.pseudonym);
     const submission = await this.api.post<SubmissionResult>("/flows/submission", { manuscriptId: intake.manuscriptId, ...signed });
-    return { intake, pseudonym: ps, signed, submission };
+    let bound: { tx: { txHash: Hex }; advance?: SubmissionResult["advance"] } | undefined;
+    if (Member.chain && (await this.escrowRequired())) {
+      bound = await this.bindNote(intake.sessionId);
+      if (bound.advance && "steps" in bound.advance) submission.advance = bound.advance;
+    }
+    return { intake, pseudonym: ps, signed, submission, bound };
+  }
+
+  // ------------------------------------------------------------ escrow APC (Hugo, M7)
+
+  private async serverConfig() {
+    return new Api(this.api.base).get<{ escrowRequired: boolean; contracts: Record<string, string>; chainId: number }>("/config");
+  }
+
+  async escrowRequired(): Promise<boolean> {
+    return (await this.serverConfig()).escrowRequired;
+  }
+
+  /** P01: membeli satu note APC dari dompet penyetor (rahasia note disimpan di sini, tidak dikirim ke server). */
+  async buyNote(): Promise<NoteInfo> {
+    if (!Member.chain) throw new Error("Member.chain belum diisi");
+    const secret = generateNoteSecret();
+    const dep = await Member.chain.deposit(secret);
+    const note = { secret, depositTx: dep.txHash, payer: dep.payer };
+    this.notes.push(note);
+    return note;
+  }
+
+  /** Note yang belum terikat ke sesi mana pun; membeli satu bila tidak ada. */
+  private async spareNote(): Promise<NoteInfo> {
+    const bound = new Set([...this.noteOfSession.values()]);
+    return this.notes.find((n) => !bound.has(n)) ?? (await this.buyNote());
+  }
+
+  /** P02: mengikat note ke sesi. Yang dikirim ke server hanya sesi, nullifier, dan bukti (note tidak disebut). */
+  async bindNote(sessionId: Hex, note?: NoteInfo) {
+    const n = note ?? (await this.spareNote());
+    const nullifier = noteBindNullifier(n.secret);
+    const proof = await this.prover.prove(ZkKind.NoteBind, { noteSecret: n.secret }, signals.noteBind(sessionId, nullifier));
+    const res = await this.anon().post<{ tx: { txHash: Hex }; advance?: SubmissionResult["advance"] }>("/escrow/bind", { sessionId, nullifier, proof: proof.proof });
+    this.noteOfSession.set(sessionId.toLowerCase(), n);
+    return res;
+  }
+
+  /** Refund penuh ke alamat baru (belum pernah dipakai). Penerima terikat pada bukti. */
+  async refund(sessionId: Hex, recipient: Address, opts: { signAs?: Member } = {}) {
+    const owner = opts.signAs ?? this;
+    const note = owner.noteOfSession.get(sessionId.toLowerCase());
+    if (!note) throw new Error("Tidak ada note terikat ke sesi ini pada anggota ini");
+    const nullifier = noteRefundNullifier(note.secret, sessionId);
+    const proof = await this.prover.prove(ZkKind.NoteRefund, { noteSecret: note.secret }, signals.noteRefund(sessionId, recipient, nullifier));
+    return this.anon().post<{ tx: { txHash: Hex }; closed: string[] }>("/escrow/refund", { sessionId, recipient, nullifier, proof: proof.proof });
+  }
+
+  // --------------------------------------------------------- reputasi dan imbalan (Hugo, M7)
+
+  /**
+   * P06: menyatakan tingkat reputasi (q4) untuk pseudonim penelaah di sebuah undangan. Tingkat dibaca dari saldo
+   * SBT publik di klien; server hanya menerima pseudonim dan tingkat, bukan `reputationId`.
+   */
+  async declareReputationTier(invite: Invite, opts: { tierOverride?: number } = {}) {
+    if (!Member.chain) throw new Error("Member.chain belum diisi");
+    const tier = opts.tierOverride ?? reputationTier(await Member.chain.effectiveBalance(reputationId(this.secret)));
+    const ps = this.reviewerPseudonym(invite);
+    const nullifier = reputationBucketNullifier(this.secret, invite.sessionId, invite.slot);
+    const proof = await this.prover.prove(ZkKind.ReputationBucket, { secret: this.secret, slot: invite.slot }, signals.reputationBucket(invite.sessionId, ps.pseudonym, tier, nullifier));
+    const res = await this.anon().post("/flows/reviews/reputation-tier", { sessionId: invite.sessionId, pseudonym: ps.pseudonym, tier, nullifier, proof: proof.proof });
+    return { tier, res };
+  }
+
+  /** P08: klaim imbalan ETH ke alamat baru, ditandatangani pseudonim penelaah. */
+  async claimReward(sessionId: Hex, slot: number, recipient: Address, opts: { signAs?: Member } = {}) {
+    const cfg = await this.serverConfig();
+    const signerKey = deriveEphemeral((opts.signAs ?? this).secret, sessionId, Role.Reviewer, slot).privateKey;
+    const ps = deriveEphemeral(this.secret, sessionId, Role.Reviewer, slot);
+    const signature = await signClaimReward({ privateKey: signerKey, chainId: cfg.chainId, escrowPool: cfg.contracts.EscrowPool as Address }, { sessionId, recipient });
+    return this.anon().post<{ tx: { txHash: Hex }; amountWei: string }>("/incentive/claim-reward", { sessionId, pseudonym: ps.pseudonym, recipient, signature });
+  }
+
+  /**
+   * P08: mengajukan klaim reputasi atas kredit pseudonim sesi ini. Jumlah = kredit sigmoid publik (laporan QoS)
+   * dibulatkan ke bawah ke kelipatan 0,25. Permintaan tidak memuat sesi dan pseudonim.
+   * Mengembalikan null bila kredit di bawah satu langkah.
+   */
+  async claimReputation(sessionId: Hex, slot: number) {
+    const ps = deriveEphemeral(this.secret, sessionId, Role.Reviewer, slot);
+    const view = await new Api(this.api.base).get(`/incentive/${sessionId}`);
+    const row = view.distribution?.rows.find((r: { pseudonym: string }) => r.pseudonym.toLowerCase() === ps.pseudonym.toLowerCase());
+    if (!row) throw new Error("Pseudonim ini tidak ada di laporan QoS sesi tersebut");
+    const amount = claimableReputation(BigInt(row.sigmoid));
+    if (amount === 0n) return null;
+    const nullifier = reputationClaimNullifier(this.secret, sessionId, slot);
+    const rid = reputationId(this.secret);
+    const proof = await this.prover.prove(ZkKind.ReputationClaim, { secret: this.secret, sessionId, slot }, signals.reputationClaim(rid, amount, nullifier));
+    const body = { reputationId: rid, amount: amount.toString(), nullifier, proof: proof.proof };
+    return { amount, res: await this.anon().post("/incentive/reputation-claims", body), body };
   }
 }
 

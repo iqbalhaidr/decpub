@@ -99,6 +99,13 @@ export const signals = {
     addrWord(recipient),
     nullifier,
   ],
+  /** [sessionId, pseudonym, tier, nullifier]. Pernyataan tingkat reputasi (q4) untuk pseudonim penelaah. */
+  reputationBucket: (sessionId: Hex, pseudonym: Address, tier: number, nullifier: Hex): Hex[] => [
+    sessionId,
+    addrWord(pseudonym),
+    word(tier),
+    nullifier,
+  ],
   /** [reputationId, amount, nullifier]. `ReputationSBT.claimReputation`. */
   reputationClaim: (reputationId: Hex, amount: bigint, nullifier: Hex): Hex[] => [
     reputationId,

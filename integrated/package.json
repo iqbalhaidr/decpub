@@ -28,6 +28,7 @@
     "demo:m4": "node --import tsx scripts/milestones/m4.ts",
     "demo:m5": "node --import tsx scripts/milestones/m5.ts",
     "demo:m6": "node --import tsx scripts/milestones/m6.ts",
+    "demo:m7": "node --import tsx scripts/milestones/m7.ts",
     "server": "npm run start -w server",
     "test:server": "npm run test -w server",
     "test:shared": "npm run test -w packages/shared",

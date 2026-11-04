@@ -44,6 +44,7 @@ import {
   type Seat,
 } from "../lib/flow.ts";
 import { Member, type Invite } from "../lib/member.ts";
+import { ClientChain } from "../lib/client-chain.ts";
 import { startServices } from "../lib/services.ts";
 
 let failed = 0;
@@ -79,6 +80,8 @@ const gatewayAddr = contractAddress(deployments, "ActionGateway");
 
 console.log(`demo:m5  jaringan ${deployments.network} (chainId ${deployments.chainId})  [SIMULASI: ZK, storage, plagiarisme, undangan]`);
 const services = await startServices({ verbose: process.env.VERBOSE === "1" });
+// M7: escrow APC wajib. Klien membeli dan mengikat note otomatis saat mengajukan naskah (lihat Member.submitManuscript).
+Member.chain = await ClientChain.connect();
 console.log(`layanan: server ${services.urls.server}  storage ${services.urls.storage}  zk ${services.urls.zk}\n`);
 
 try {

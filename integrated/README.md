@@ -4,17 +4,18 @@ Integrasi tiga tugas akhir (Ciko, Hugo, Roihan) menjadi satu sistem publikasi il
 anonim (triple blind) dengan insentif penelaah. Rancangan: `../docs/arsitektur.md`.
 Urutan kerja: `../docs/PLAN.md`. Status: `../docs/PROGRESS.md`.
 
-**Status saat ini: M6 selesai.** Kontrak Ciko (M0), storage simulator (M1), ZK simulasi,
+**Status saat ini: M7 selesai.** Kontrak Ciko (M0), storage simulator (M1), ZK simulasi,
 `ActionGateway`, dan pseudonim tanpa tautan (M2), backend P01-P04 (M3), P05-P08 jalur diterima (M4),
-revisi, zona abu-abu, dan penolakan (M5), serta kontrak escrow dan insentif Hugo (M6) berjalan.
-Insentif di backend, pelengkap Roihan, dan frontend menyusul (M7 dst).
+revisi, zona abu-abu, dan penolakan (M5), kontrak escrow dan insentif Hugo (M6), serta insentif di backend
+(APC di muka, QoS, imbalan otomatis, klaim, reputasi, refund; M7) berjalan.
+Pelengkap Roihan dan frontend menyusul (M8 dst).
 Target akhir: `npm install && npm run demo`.
 
 ## Prasyarat
 
 - Node >= 22 (diuji di Node 24.11.0), npm 11.
 
-## Menjalankan (M0 sampai M6)
+## Menjalankan (M0 sampai M7)
 
 ```bash
 cd integrated
@@ -40,9 +41,10 @@ npm run demo:m3          # demo/regresi M3: butuh `chain` + `deploy:local`; stor
 npm run demo:m4          # demo/regresi M4: P05-P08 jalur diterima sampai Published, audit trail dari event (prasyarat sama)
 npm run demo:m5          # demo/regresi M5: revisi Minor/Major, zona abu-abu, desk reject/revisi desk, no-show (prasyarat sama)
 npm run demo:m6          # demo/regresi M6: escrow, refund, timeout, distribusi D1 = Lampiran B Hugo, klaim, decay (prasyarat sama; zk-sim dinyalakan sendiri)
+npm run demo:m7          # demo/regresi M7: APC di muka, imbalan sesuai kualitas, laporan QoS = hash on-chain, klaim, reputasi per epoch, q4 sesi kedua, refund (prasyarat sama)
 ```
 
-`demo:m6` memajukan jam chain lebih dari 180 hari (`evm_increaseTime`). Tidak merusak demo lain; jalankan ulang
+`demo:m6` memajukan jam chain lebih dari 180 hari dan `demo:m7` beberapa hari (`evm_increaseTime`). Tidak merusak demo lain; jalankan ulang
 `npm run chain` dan `npm run deploy:local` bila ingin jam chain kembali normal.
 
 ### Storage publik (M1)
@@ -170,4 +172,25 @@ dan membaca verifier ZK lewat `ActionGateway.verifier()`, jadi pemasangan verifi
 
 Parameter (APC, timeout, decay) di `contracts/hugo-params.ts`; `APC_AMOUNT_WEI` dan `ESCROW_IDLE_TIMEOUT_SECONDS`
 menimpanya saat deploy. `[SIMULASI]` bukti `NOTE_BIND` dan `NOTE_REFUND` diperiksa witness-nya oleh zk-sim
-(note ada di pool, belum dibelanjakan, pemilik note yang terikat ke sesi). `REPUTATION_CLAIM` baru diperiksa zk-sim di M7.
+(note ada di pool, belum dibelanjakan, pemilik note yang terikat ke sesi). `REPUTATION_BUCKET` dan `REPUTATION_CLAIM` diperiksa zk-sim sejak M7.
+
+### Insentif di backend (M7)
+
+`ESCROW_REQUIRED=true` (bawaan): sesi baru menunggu APC terikat sebelum pengecekan P03. Server tidak memegang rahasia note
+atau dompet penyetor; ia hanya relayer bagi aksi yang sudah dibuktikan klien (tanpa JWT, bukti mengikat semua parameter).
+
+| Endpoint | Fungsi |
+|---|---|
+| `POST /escrow/bind` | ikat note ke sesi (bukti `NOTE_BIND`), lalu P03 dilanjutkan |
+| `POST /escrow/refund` | refund penuh ke alamat baru (gagal P03, desk reject, atau macet melewati timeout) |
+| `GET /escrow/:sessionId` | status escrow publik |
+| `POST /flows/reviews/reputation-tier` | penelaah menyatakan tingkat reputasi (q4) untuk pseudonim barunya (bukti `REPUTATION_BUCKET`) |
+| `GET /incentive/:sessionId` | kebijakan terkunci, matriks QoS per pseudonim, bobot, skor, imbalan, status klaim, laporan QoS |
+| `POST /incentive/claim-reward` | klaim imbalan ke alamat baru (tanda tangan EIP-712 pseudonim) |
+| `POST /incentive/reputation-claims` | klaim mint reputasi (bukti `REPUTATION_CLAIM`, tanpa sesi dan pseudonim), menunggu epoch |
+| `POST /admin/epochs/flush` | admin: mint semua klaim yang menunggu, diacak dan digabung |
+
+Penyelesaian berjalan otomatis saat status final dan ada keputusan penelaah (`ProgressService`): q1 dari timestamp on-chain,
+q2/q3 dari `SimulatedQoSProvider` `[SIMULASI]`, q4 dari tingkat yang dibuktikan; bobot dari kebijakan jurnal yang dikunci saat
+sesi dibuat; laporan QoS diunggah ke storage dan hash-nya masuk transaksi `executeDistribution`. TOPSIS, sigmoid, dan
+pembagian escrow dijalankan kontrak. Variabel env baru: `ESCROW_REQUIRED`, `QOS_PROVIDER` (hanya `simulated`).

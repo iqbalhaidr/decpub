@@ -618,6 +618,10 @@ Yang dipertahankan: `next`, `react`, `react-dom`, `viem`, `axios`.
 | Daftar pseudonim `executeDistribution` berasal dari operator | Keputusan M6 | Kontrak menolak pseudonim tanpa reveal, tetapi tidak memaksa semua yang reveal ikut. Operator yang berkolusi bisa memusatkan imbalan ke satu penelaah. Sama dengan batasan `decideBatch` |
 | Dana tertahan bila operator hilang setelah ada keputusan | Keputusan M6 | Tanpa keputusan: timeout refund. Dengan keputusan: pemulihan lewat `IncentiveEngine.setOperator` oleh admin |
 | Refund sesi `Incomplete` hanya lewat timeout | Keputusan M6 | Kontrak Ciko tidak punya penutupan sesi |
+| Kebijakan bobot dikunci di server, bukan di chain | Keputusan M7, disetujui pengguna | Kebijakan jurnal disalin ke DB saat sesi dibuat dan hash-nya masuk chain saat distribusi, tetapi saat pembuatan sesi tidak ada jangkar on-chain. Server yang curang bisa mengganti isi kebijakan sebelum distribusi tanpa terdeteksi sampai laporan publik; sesudahnya laporan dan hash on-chain bisa diperiksa |
+| Klaim reputasi dibulatkan ke bawah ke kelipatan 0,25 | Keputusan M7, disetujui pengguna | Kredit di bawah 0,25 tidak bisa diklaim, dan sisa pembulatan tertahan di `unclaimedPool`. Aman (klaim tak pernah melebihi kredit), tetapi penelaah dengan skor sedang tidak menambah reputasi |
+| Lebih dari 10 pseudonim reveal pada satu sesi: 10 terbaru yang dihitung | Keputusan M7, disetujui pengguna | Kontrak menolak lebih dari 10 baris (D2). Terjadi hanya pada beberapa ronde dengan zona abu-abu; yang dikecualikan dicatat di laporan QoS |
+| Tenggat otomatis fase telaah dan timeout refund digerakkan manual | Keputusan M7, disetujui pengguna | `close-phase` dan `POST /escrow/refund` tetap dipicu manusia; tidak ada penjadwal di server |
 | ZK adalah simulasi | Instruksi pengguna | Attestor melihat witness dan sifat zero-knowledge tidak ada. Nilainya ada pada bentuk alur dan interface |
 | Tanpa audit keamanan | Lingkup | Tidak layak produksi |
 

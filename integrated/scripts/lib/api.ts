@@ -58,6 +58,13 @@ export class Api {
     );
   }
 
+  async patch<T = any>(path: string, json?: unknown): Promise<T> {
+    return this.handle<T>(
+      await fetch(this.base + path, { method: "PATCH", headers: this.headers({ "content-type": "application/json" }), body: JSON.stringify(json ?? {}) }),
+      `PATCH ${path}`,
+    );
+  }
+
   async postForm<T = any>(path: string, form: FormData): Promise<T> {
     return this.handle<T>(await fetch(this.base + path, { method: "POST", headers: this.headers(), body: form }), `POST ${path}`);
   }

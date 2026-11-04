@@ -5,7 +5,7 @@
  * impor `.js`): `normalization`, `weighting/{bwm,ecwm,fusion}`, `topsis`, `sigmoid`.
  * Ditambah di integrasi: `onchain.ts` (konversi ke format kontrak, model referensi bilangan bulat
  * yang meniru `IncentiveEngine` persis), `datasets.ts` dan `presets.ts` (data D1-D3 dan preset BWM Hugo).
- * `QoSProvider` menyusul di M7.
+ * `qos.ts` (QoSProvider, SimulatedQoSProvider) dan `settlement.ts` (matriks QoS -> masukan kontrak + laporan) di M7.
  */
 export { normalize, type CriterionType } from "./normalization.js";
 export {
@@ -29,3 +29,5 @@ export * from "./onchain.js";
 export * from "./datasets.js";
 export * from "./presets.js";
 export * from "./pipeline.js";
+export * from "./qos.js";
+export * from "./settlement.js";

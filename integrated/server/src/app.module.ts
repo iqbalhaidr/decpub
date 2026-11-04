@@ -37,6 +37,13 @@ import { AuditTrailService } from "./public/audit-trail.service.js";
 import { ProjectionService } from "./public/projection.service.js";
 import { DbInviteChannel, INVITE_CHANNEL } from "./selection/invite-channel.js";
 import { InvitationsRepository } from "./selection/invitations.repository.js";
+import { EscrowGate } from "./escrow/escrow-gate.js";
+import { EscrowService } from "./escrow/escrow.service.js";
+import { IncentiveController } from "./incentive/incentive.controller.js";
+import { IncentiveRepository } from "./incentive/incentive.repository.js";
+import { IncentiveService } from "./incentive/incentive.service.js";
+import { QOS_PROVIDER, createQosProvider } from "./incentive/qos.provider.js";
+import { ReputationService } from "./incentive/reputation.service.js";
 import { SHUFFLE, SelectionService, ZK_PROVER, cryptoShuffle } from "./selection/selection.service.js";
 
 /**
@@ -58,6 +65,7 @@ export class AppModule {
         ManuscriptsController,
         FlowsController,
         AssignmentsController,
+        IncentiveController,
         PublicController,
       ],
       providers: [
@@ -93,6 +101,12 @@ export class AppModule {
         ReviewsService,
         ProjectionService,
         AuditTrailService,
+        IncentiveRepository,
+        { provide: QOS_PROVIDER, inject: [APP_CONFIG], useFactory: (c: AppConfig) => createQosProvider(c) },
+        IncentiveService,
+        ReputationService,
+        EscrowGate,
+        EscrowService,
       ],
       exports: [APP_CONFIG],
     };

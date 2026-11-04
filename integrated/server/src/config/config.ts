@@ -37,8 +37,10 @@ export interface AppConfig {
   /** Ambang skor plagiarisme (0-100); di atasnya P03 menolak. Sama dengan Roihan (`PublicationRegistry.sol:131`). */
   plagiarismThreshold: number;
   corpusDir: string;
-  /** M3: false. M7 menyalakan escrow APC. */
+  /** M7: true. Sesi baru menunggu APC terikat (`POST /escrow/bind`) sebelum P03. */
   escrowRequired: boolean;
+  /** Penyedia QoS q2/q3: hanya "simulated" (heuristik tanpa model). */
+  qosProvider: string;
   /** Jalankan P03 dan P04 otomatis setelah pengajuan. */
   autoAdvance: boolean;
   seedDemoAccounts: boolean;
@@ -96,7 +98,8 @@ export function loadConfig(env: Env = process.env, cwd = process.cwd()): AppConf
     corsOrigin: env.CORS_ORIGIN ?? "http://localhost:3000",
     plagiarismThreshold: int(env.PLAGIARISM_THRESHOLD, 30),
     corpusDir: resolve(cwd, env.PLAGIARISM_CORPUS_DIR ?? "corpus"),
-    escrowRequired: bool(env.ESCROW_REQUIRED, false),
+    escrowRequired: bool(env.ESCROW_REQUIRED, true),
+    qosProvider: env.QOS_PROVIDER ?? "simulated",
     autoAdvance: bool(env.AUTO_ADVANCE, true),
     seedDemoAccounts: bool(env.SEED_DEMO_ACCOUNTS, isLocalNetwork),
     maxUploadBytes: int(env.MAX_UPLOAD_BYTES, 20 * 1024 * 1024),

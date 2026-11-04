@@ -9,7 +9,8 @@
  *               Incomplete                         -> hanya bila `recheck` (P03 ulang)
  *             Status on-chain adalah sumber kebenaran, jadi `advance` aman dipanggil ulang.
  *
- * Setelah P04, `ProgressService` mengundang editor (P05). Refund APC untuk Reject/desk reject menyusul di M7 (`ESCROW_REQUIRED`).
+ * Setelah P04, `ProgressService` mengundang editor (P05). Dengan ESCROW_REQUIRED (M7) `advance` menunggu APC terikat
+ * (`POST /escrow/bind`); refund untuk Reject/desk reject dikerjakan penulis lewat `POST /escrow/refund`.
  */
 import { BadRequestException, ConflictException, Inject, Injectable, Logger, NotFoundException } from "@nestjs/common";
 import type { Hex } from "viem";
@@ -22,6 +23,9 @@ import { AnonymizationService } from "../manuscripts/anonymization.service.js";
 import { ChecksService, type CheckReport } from "../manuscripts/checks.service.js";
 import { ManuscriptsRepository, type ManuscriptRow } from "../manuscripts/manuscripts.repository.js";
 import { PUBLIC_STORAGE } from "../storage/storage.module.js";
+import { EscrowGate } from "../escrow/escrow-gate.js";
+import { IncentiveService } from "../incentive/incentive.service.js";
+import { JournalsRepository } from "../journals/journals.repository.js";
 import { ProgressService } from "./progress.service.js";
 
 export interface SignedSubmission {
@@ -56,6 +60,9 @@ export class PipelineService {
     private readonly anonymization: AnonymizationService,
     private readonly manuscripts: ManuscriptsRepository,
     private readonly progress: ProgressService,
+    private readonly gate: EscrowGate,
+    private readonly incentive: IncentiveService,
+    private readonly journals: JournalsRepository,
   ) {}
 
   /** Akses naskah: hanya pemilik. */
@@ -90,6 +97,9 @@ export class PipelineService {
       throw new BadRequestException("Pseudonim bukan Author untuk sesi ini");
     }
 
+    // Kebijakan bobot insentif jurnal dikunci SEBELUM sesi dibuat: perubahan kebijakan sesudahnya tidak berlaku (D1).
+    if (!this.journals.get(m.journalId)) throw new BadRequestException("Jurnal naskah tidak ditemukan");
+    this.incentive.lockPolicyFor(m.sessionId, m.journalId);
     const tx = await this.gateway.createSessionSigned({ ...a, nonce: BigInt(a.nonce) }, signed.signature);
     this.manuscripts.markSubmitted(m.id);
     const out: { tx: TxReceipt; advance?: AdvanceResult } = { tx };
@@ -103,6 +113,11 @@ export class PipelineService {
     try {
       const sessionId = m.sessionId as Hex;
       const steps: StepResult[] = [];
+      // Gerbang escrow: tanpa APC terikat (ESCROW_REQUIRED) atau setelah refund, tidak ada langkah sistem.
+      const verdict = await this.gate.check(sessionId);
+      if (!verdict.proceed) {
+        return { sessionId, steps, status: (await this.reader.getSession(sessionId)).status, notes: [verdict.reason] };
+      }
       let recheck = opts.recheck ?? false;
       for (let guard = 0; guard < 4; guard++) {
         const s = await this.reader.getSession(sessionId);
@@ -156,7 +171,7 @@ export class PipelineService {
     if (outcome.report.flags.identityExposed) {
       warnings.push(`identityExposed: ${outcome.report.identityExposedFields.join(", ")} masih terbaca di isi naskah anonim (anonimisasi hanya metadata dan sampul, B1)`);
     }
-    if (outcome.report.result === "Reject") this.log.log(`Sesi ${sessionId} ditolak di P03 (refund APC menyusul di M7)`);
+    if (outcome.report.result === "Reject") this.log.log(`Sesi ${sessionId} ditolak di P03; APC bisa di-refund (POST /escrow/refund)`);
     return { step: "P03", result: outcome.report.result, reportUri, plagiarismScore: outcome.report.plagiarism.score, warnings, tx };
   }
 }

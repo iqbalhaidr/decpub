@@ -1,4 +1,5 @@
 import { Injectable } from "@nestjs/common";
+import { PRESET_NAMES } from "@decpub/incentive-core";
 import { DatabaseService, type Row } from "../db/database.service.js";
 
 /**
@@ -10,7 +11,8 @@ export interface WeightPolicy {
   lambda: number;
 }
 
-export const WEIGHT_PRESETS = ["Balanced", "Actionability-First", "Speed-First", "Relevance-First", "Reputation-First"] as const;
+/** Nama preset BWM: satu sumber di `@decpub/incentive-core` (vektor `eval-datasets.ts` Hugo). */
+export const WEIGHT_PRESETS = PRESET_NAMES;
 export const DEFAULT_WEIGHT_POLICY: WeightPolicy = { preset: "Balanced", lambda: 0.6 };
 
 export interface Journal {

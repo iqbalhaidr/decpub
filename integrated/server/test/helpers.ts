@@ -28,6 +28,7 @@ export function testConfig(over: Partial<AppConfig> = {}): AppConfig {
     plagiarismThreshold: 30,
     corpusDir: join(import.meta.dirname, "../corpus"),
     escrowRequired: false,
+    qosProvider: "simulated",
     autoAdvance: false,
     seedDemoAccounts: true,
     maxUploadBytes: 20 * 1024 * 1024,
@@ -36,3 +37,7 @@ export function testConfig(over: Partial<AppConfig> = {}): AppConfig {
     ...over,
   };
 }
+
+/** Pengganti gerbang escrow dan penyelesaian insentif untuk tes logika alur (tanpa chain). */
+export const openGate = { check: async () => ({ proceed: true as const, state: 0 }) };
+export const noSettle = { settle: async () => ({ outcome: "skipped" as const, reason: "tes" }), lockPolicyFor: () => undefined };

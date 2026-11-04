@@ -21,6 +21,13 @@ const app = createZkApp({
     rpcUrl,
     contractAddress(deployments, "PermanentAccounts"),
     deployments.contracts.EscrowPool ? contractAddress(deployments, "EscrowPool") : undefined,
+    deployments.contracts.ReputationSBT && deployments.contracts.IncentiveEngine
+      ? {
+          reputationSbt: contractAddress(deployments, "ReputationSBT"),
+          engine: contractAddress(deployments, "IncentiveEngine"),
+          fromBlock: BigInt(process.env.LOG_FROM_BLOCK ?? 0),
+        }
+      : undefined,
   ),
 });
 app.listen(port, host, () => {

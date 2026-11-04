@@ -115,7 +115,7 @@ export class IntakeService {
     });
 
     const warnings: string[] = [];
-    if (this.config.escrowRequired) warnings.push("ESCROW_REQUIRED aktif, tetapi pengikatan APC baru ada di M7");
+    if (this.config.escrowRequired) warnings.push("APC wajib: setelah mengajukan, ikat note APC ke sesi (POST /escrow/bind); pengecekan P03 menunggu itu");
     return { ...row, warnings };
   }
 

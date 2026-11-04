@@ -134,4 +134,54 @@ CREATE TABLE manuscript_revisions (
 ALTER TABLE invitations ADD COLUMN voided_at TEXT;
 `,
   },
+  {
+    version: 4,
+    sql: `
+-- Kebijakan bobot insentif yang DIKUNCI saat sesi dibuat (D1, M7). Perubahan kebijakan jurnal sesudahnya
+-- tidak memengaruhi sesi ini. \`policy_json\` persis yang di-hash (\`policy_hash\`, dicatat on-chain saat distribusi).
+CREATE TABLE session_policies (
+  session_id  TEXT PRIMARY KEY,
+  journal_id  INTEGER NOT NULL,
+  preset      TEXT NOT NULL,
+  lambda      REAL NOT NULL,
+  policy_json TEXT NOT NULL,
+  policy_hash TEXT NOT NULL,
+  locked_at   TEXT NOT NULL,
+  -- 1 bila sesi dibuat sebelum kebijakan terkunci dan kebijakan jurnal saat penyelesaian dipakai.
+  locked_late INTEGER NOT NULL DEFAULT 0
+);
+
+-- Tingkat reputasi (q4) yang dibuktikan penelaah untuk pseudonim sesinya. Hanya pseudonim dan tingkat;
+-- reputationId tidak pernah sampai ke server pada langkah ini.
+CREATE TABLE reputation_tiers (
+  session_id  TEXT NOT NULL,
+  pseudonym   TEXT NOT NULL,
+  tier        INTEGER NOT NULL CHECK (tier BETWEEN 0 AND 4),
+  recorded_at TEXT NOT NULL,
+  PRIMARY KEY (session_id, pseudonym)
+);
+
+-- Laporan QoS yang diunggah ke storage publik; hash-nya masuk transaksi \`executeDistribution\`.
+CREATE TABLE incentive_reports (
+  session_id  TEXT PRIMARY KEY,
+  report_cid  TEXT NOT NULL,
+  report_hash TEXT NOT NULL,
+  tx_hash     TEXT NOT NULL,
+  executed_at TEXT NOT NULL
+);
+
+-- Antrian klaim reputasi menunggu epoch. Tanpa sesi dan tanpa pseudonim, sengaja: yang diketahui server
+-- hanya (reputationId, jumlah, nullifier, bukti). Pengiriman digabung dan diacak saat epoch dipicu admin.
+CREATE TABLE reputation_claim_queue (
+  id            INTEGER PRIMARY KEY AUTOINCREMENT,
+  reputation_id TEXT NOT NULL,
+  amount        TEXT NOT NULL,
+  nullifier     TEXT NOT NULL UNIQUE,
+  proof         TEXT NOT NULL,
+  queued_at     TEXT NOT NULL,
+  minted_tx     TEXT,
+  minted_at     TEXT
+);
+`,
+  },
 ];

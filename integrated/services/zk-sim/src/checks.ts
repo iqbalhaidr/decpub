@@ -8,6 +8,8 @@
 import {
   ZkKind,
   assignmentCommitment,
+  Role,
+  claimableReputation,
   credentialDigest,
   criteriaHash,
   deriveEphemeral,
@@ -17,6 +19,11 @@ import {
   noteBindNullifier,
   noteCommitment,
   noteRefundNullifier,
+  reputationBucketNullifier,
+  reputationClaimNullifier,
+  reputationId,
+  reputationTier,
+  MAX_TIER,
   type ZkKindValue,
 } from "@decpub/shared";
 import { isHex, pad, recoverMessageAddress, type Address, type Hex } from "viem";
@@ -42,6 +49,15 @@ export interface ChainReader {
   isNullifierUsed?(nullifier: Hex): Promise<boolean>;
   /** Nullifier ikat note yang terikat ke sesi (`EscrowPool.escrows`), atau null bila sesi belum punya escrow. */
   escrowBindNullifier?(sessionId: Hex): Promise<Hex | null>;
+  /** `ReputationSBT.effectiveBalance`: saldo reputasi setelah decay (skala 1e18). Tanpa ReputationSBT: jenis reputasi 501. */
+  effectiveBalance?(reputationId: Hex): Promise<bigint>;
+  /** `ReputationSBT.nullifierUsed`. */
+  isReputationNullifierUsed?(nullifier: Hex): Promise<boolean>;
+  /**
+   * Kredit reputasi (skala 1e18) yang dicatat `IncentiveEngine` untuk pseudonim di sesi itu
+   * (event `RewardCredited`), atau null bila tidak ada kredit.
+   */
+  reputationCredit?(sessionId: Hex, pseudonym: Address): Promise<bigint | null>;
 }
 
 export interface CheckContext {
@@ -238,10 +254,83 @@ const checkNoteRefund: Checker = async (witnessRaw, signals, ctx) => {
   }
 };
 
+function needReputationChain(ctx: CheckContext): Required<Pick<ChainReader, "effectiveBalance" | "isReputationNullifierUsed" | "reputationCredit">> {
+  const { effectiveBalance, isReputationNullifierUsed, reputationCredit } = ctx.chain;
+  if (!effectiveBalance || !isReputationNullifierUsed || !reputationCredit) {
+    throw new ZkCheckError("REPUTATION_NOT_CONFIGURED", "zk-sim tidak terhubung ke ReputationSBT dan IncentiveEngine", 501);
+  }
+  return { effectiveBalance, isReputationNullifierUsed, reputationCredit };
+}
+
+/**
+ * REPUTATION_BUCKET (P06): penelaah menyatakan tingkat reputasi (q4) untuk pseudonim barunya.
+ * Witness: secret, slot. Sinyal publik: [sessionId, pseudonym, tingkat, nullifier].
+ * Yang dibuktikan: pseudonim turunan dari secret ini (peran Reviewer, slot itu), dan tingkat sama dengan
+ * `reputationTier(effectiveBalance(reputationId(secret)))` di ReputationSBT. Server hanya menerima tingkat
+ * dan pseudonim; ia tidak melihat `reputationId`, sehingga tidak bisa menautkan pseudonim ke riwayat reputasi.
+ */
+const checkReputationBucket: Checker = async (witnessRaw, signals, ctx) => {
+  if (signals.length !== 4) bad("REPUTATION_BUCKET butuh 4 sinyal publik");
+  const w = asRecord(witnessRaw, "witness");
+  if (!isBytes32(w.secret)) bad("witness.secret harus bytes32 hex");
+  const slot = w.slot ?? 0;
+  if (typeof slot !== "number" || !Number.isInteger(slot) || slot < 0 || slot > 0xffffffff) bad("witness.slot harus bilangan bulat 0..2^32-1");
+  const chain = needReputationChain(ctx);
+  const [sessionId, pseudonymWord, tierWord, nullifier] = signals;
+
+  const tierBig = BigInt(tierWord);
+  if (tierBig > BigInt(MAX_TIER)) bad(`tingkat harus 0..${MAX_TIER}`);
+  const d = deriveEphemeral(w.secret, sessionId, Role.Reviewer, slot);
+  if (pad(d.pseudonym, { size: 32 }).toLowerCase() !== pseudonymWord.toLowerCase()) {
+    throw new ZkCheckError("PSEUDONYM_MISMATCH", "pseudonim bukan turunan dari secret, sesi, dan slot ini");
+  }
+  if (reputationBucketNullifier(w.secret, sessionId, slot).toLowerCase() !== nullifier.toLowerCase()) {
+    throw new ZkCheckError("NULLIFIER_MISMATCH", "nullifier tidak sesuai");
+  }
+  const actual = reputationTier(await chain.effectiveBalance(reputationId(w.secret)));
+  if (actual !== Number(tierBig)) {
+    throw new ZkCheckError("TIER_MISMATCH", "tingkat yang dinyatakan tidak sama dengan saldo reputasi pemilik secret ini");
+  }
+};
+
+/**
+ * REPUTATION_CLAIM (P08): penelaah mengklaim mint reputasi atas kredit pseudonim sesinya, TANPA menyebut
+ * pseudonim atau sesi. Witness: secret, sessionId, slot. Sinyal publik: [reputationId, jumlah, nullifier].
+ * Yang dibuktikan: reputationId milik secret ini; pseudonim turunannya punya kredit di IncentiveEngine untuk
+ * sesi itu; jumlah = kredit dibulatkan ke bawah ke kelipatan 0,25 (`claimableReputation`) dan > 0; nullifier turunan
+ * dari secret + sesi + slot dan belum dipakai di ReputationSBT.
+ */
+const checkReputationClaim: Checker = async (witnessRaw, signals, ctx) => {
+  if (signals.length !== 3) bad("REPUTATION_CLAIM butuh 3 sinyal publik");
+  const w = asRecord(witnessRaw, "witness");
+  if (!isBytes32(w.secret)) bad("witness.secret harus bytes32 hex");
+  if (!isBytes32(w.sessionId)) bad("witness.sessionId harus bytes32 hex");
+  const slot = w.slot ?? 0;
+  if (typeof slot !== "number" || !Number.isInteger(slot) || slot < 0 || slot > 0xffffffff) bad("witness.slot harus bilangan bulat 0..2^32-1");
+  const chain = needReputationChain(ctx);
+  const [repId, amountWord, nullifier] = signals;
+
+  if (reputationId(w.secret).toLowerCase() !== repId.toLowerCase()) {
+    throw new ZkCheckError("REPUTATION_ID_MISMATCH", "reputationId bukan turunan dari secret ini");
+  }
+  const d = deriveEphemeral(w.secret, w.sessionId, Role.Reviewer, slot);
+  const credit = await chain.reputationCredit(w.sessionId, d.pseudonym);
+  if (credit === null) throw new ZkCheckError("NO_CREDIT", "pseudonim ini tidak punya kredit reputasi di sesi tersebut");
+  const claimable = claimableReputation(credit);
+  if (claimable === 0n) throw new ZkCheckError("NOTHING_CLAIMABLE", "kredit di bawah satu langkah klaim (0,25)");
+  if (BigInt(amountWord) !== claimable) {
+    throw new ZkCheckError("AMOUNT_MISMATCH", "jumlah klaim tidak sama dengan kredit yang boleh diklaim");
+  }
+  if (reputationClaimNullifier(w.secret, w.sessionId, slot).toLowerCase() !== nullifier.toLowerCase()) {
+    throw new ZkCheckError("NULLIFIER_MISMATCH", "nullifier tidak sesuai");
+  }
+  if (await chain.isReputationNullifierUsed(nullifier)) {
+    throw new ZkCheckError("ALREADY_CLAIMED", "kredit ini sudah diklaim");
+  }
+};
+
 /** Jenis yang belum punya pemeriksa, beserta milestone yang mengisinya. */
 const PENDING: Partial<Record<ZkKindValue, string>> = {
-  [ZkKind.ReputationBucket]: "M7",
-  [ZkKind.ReputationClaim]: "M7",
   [ZkKind.SelectiveDisclosure]: "M8",
 };
 
@@ -251,6 +340,8 @@ const CHECKERS: Partial<Record<ZkKindValue, Checker>> = {
   [ZkKind.AssignmentOwnership]: checkAssignmentOwnership,
   [ZkKind.NoteBind]: checkNoteBind,
   [ZkKind.NoteRefund]: checkNoteRefund,
+  [ZkKind.ReputationBucket]: checkReputationBucket,
+  [ZkKind.ReputationClaim]: checkReputationClaim,
 };
 
 export const SUPPORTED_KINDS = Object.keys(CHECKERS).map(Number) as ZkKindValue[];
