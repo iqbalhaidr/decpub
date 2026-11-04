@@ -7,7 +7,8 @@
   "workspaces": [
     "contracts",
     "packages/*",
-    "services/*"
+    "services/*",
+    "server"
   ],
   "scripts": {
     "chain": "npm run node -w contracts",
@@ -17,8 +18,17 @@
     "test:contracts": "npm run test -w contracts",
     "storage": "npm run start -w services/storage-sim",
     "test:storage": "npm run test -w packages/shared && npm run test -w services/storage-sim",
-    "typecheck": "npm run typecheck -w packages/shared && npm run typecheck -w services/storage-sim",
-    "demo:m1": "node --import tsx scripts/milestones/m1.ts"
+    "typecheck": "npm run typecheck -w packages/shared && npm run typecheck -w services/storage-sim && npm run typecheck -w services/zk-sim && npm run typecheck -w server",
+    "demo:m1": "node --import tsx scripts/milestones/m1.ts",
+    "zk": "npm run start -w services/zk-sim",
+    "test:zk": "npm run test -w services/zk-sim",
+    "export-abis": "npm run export-abis -w contracts",
+    "demo:m2": "node --import tsx scripts/milestones/m2.ts",
+    "demo:m3": "node --import tsx scripts/milestones/m3.ts",
+    "server": "npm run start -w server",
+    "test:server": "npm run test -w server",
+    "test:shared": "npm run test -w packages/shared",
+    "test": "npm run test:contracts && npm run test:storage && npm run test:zk && npm run test:server"
   },
   "engines": {
     "node": ">=22"

@@ -1,0 +1,26 @@
+{
+  "name": "@decpub/zk-sim",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Attestor bukti ZK simulasi: memeriksa witness lalu menandatangani sinyal publik. [SIMULASI]",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "start": "node --env-file-if-exists=../../.env --import tsx src/main.ts",
+    "test": "node --import tsx --test test/*.test.ts",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@decpub/shared": "*",
+    "express": "^5.1.0",
+    "viem": "^2.47.6"
+  },
+  "devDependencies": {
+    "@types/express": "^5.0.0",
+    "@types/node": "^22.8.5",
+    "tsx": "^4.19.0",
+    "typescript": "~5.8.0"
+  }
+}

@@ -2,17 +2,26 @@
 pragma solidity ^0.8.28;
 
 import "./interfaces/IEphemeralAccounts.sol";
-import "./interfaces/IPermanentAccounts.sol";
 
+/**
+ * PERUBAHAN DARI KODE CIKO (docs/arsitektur.md bagian 8.2 dan 9):
+ *  - Tidak lagi mengenal `PermanentAccounts`. Kode asal memeriksa commitment identitas
+ *    permanen di sini dan mencatatnya di event, sehingga pseudonim bisa ditautkan ke
+ *    akun permanen dari data publik. Pemeriksaan keanggotaan kini dilakukan oleh bukti
+ *    ZK di `ActionGateway`.
+ *  - Field `identityCommitment` menjadi `sessionCommitment`: nilai per sesi/peran/slot
+ *    yang tidak bisa dihubungkan ke commitment permanen tanpa secret.
+ *  - Keunikan commitment global dihapus (satu orang boleh punya pseudonim di banyak
+ *    sesi). Keunikan per (sesi, commitment) dipertahankan; keunikan per orang dijaga
+ *    nullifier di gateway.
+ */
 contract EphemeralAccounts is IEphemeralAccounts {
     address private _admin;
-    IPermanentAccounts private immutable _permanentAccounts;
 
     mapping(address => EphemeralAccount) private _accounts;
     mapping(address => bool) private _sessionManagers;
     mapping(bytes32 => bool) private _usedCommitmentsInSession;
     mapping(bytes32 => bool) private _usedPseudonymsInSession;
-    mapping(bytes32 => bool) private _usedCommitmentsGlobal;
 
     modifier onlyAdmin() {
         if (msg.sender != _admin) revert OnlyAdmin();
@@ -24,9 +33,8 @@ contract EphemeralAccounts is IEphemeralAccounts {
         _;
     }
 
-    constructor(address permanentAccountsAddr) {
+    constructor() {
         _admin = msg.sender;
-        _permanentAccounts = IPermanentAccounts(permanentAccountsAddr);
     }
 
     function setSessionManager(address manager, bool authorized) external override onlyAdmin {
@@ -44,17 +52,14 @@ contract EphemeralAccounts is IEphemeralAccounts {
         address pseudonym,
         bytes32 sessionId,
         Role role,
-        bytes32 identityCommitment
+        bytes32 sessionCommitment
     ) external override onlySessionManager {
         if (pseudonym == address(0)) revert InvalidPseudonym();
         if (sessionId == bytes32(0)) revert InvalidSession();
-        if (identityCommitment == bytes32(0)) revert InvalidCommitment();
+        if (sessionCommitment == bytes32(0)) revert InvalidCommitment();
         if (_accounts[pseudonym].exists) revert PseudonymAlreadyExists();
-        if (_usedCommitmentsGlobal[identityCommitment]) revert CommitmentAlreadyUsedGlobally();
-        if (!_permanentAccounts.isCommitmentUsed(identityCommitment))
-            revert PermanentAccountNotRegistered();
 
-        bytes32 commitKey = keccak256(abi.encodePacked(sessionId, identityCommitment));
+        bytes32 commitKey = keccak256(abi.encodePacked(sessionId, sessionCommitment));
         bytes32 pseudoKey = keccak256(abi.encodePacked(sessionId, pseudonym));
 
         if (_usedCommitmentsInSession[commitKey]) revert CommitmentAlreadyUsedInSession();
@@ -64,12 +69,11 @@ contract EphemeralAccounts is IEphemeralAccounts {
             exists: true,
             role: role,
             sessionId: sessionId,
-            identityCommitment: identityCommitment,
+            sessionCommitment: sessionCommitment,
             createdAt: uint64(block.timestamp),
             revoked: false
         });
 
-        _usedCommitmentsGlobal[identityCommitment] = true;
         _usedCommitmentsInSession[commitKey] = true;
         _usedPseudonymsInSession[pseudoKey] = true;
 
@@ -77,7 +81,7 @@ contract EphemeralAccounts is IEphemeralAccounts {
             pseudonym,
             sessionId,
             role,
-            identityCommitment,
+            sessionCommitment,
             uint64(block.timestamp)
         );
     }
@@ -108,10 +112,10 @@ contract EphemeralAccounts is IEphemeralAccounts {
 
     function isCommitmentUsedInSession(
         bytes32 sessionId,
-        bytes32 identityCommitment
+        bytes32 sessionCommitment
     ) external view override returns (bool) {
         return
-            _usedCommitmentsInSession[keccak256(abi.encodePacked(sessionId, identityCommitment))];
+            _usedCommitmentsInSession[keccak256(abi.encodePacked(sessionId, sessionCommitment))];
     }
 
     function isPseudonymUsedInSession(
@@ -121,9 +125,4 @@ contract EphemeralAccounts is IEphemeralAccounts {
         return _usedPseudonymsInSession[keccak256(abi.encodePacked(sessionId, pseudonym))];
     }
 
-    function isCommitmentUsedGlobally(
-        bytes32 identityCommitment
-    ) external view override returns (bool) {
-        return _usedCommitmentsGlobal[identityCommitment];
-    }
 }

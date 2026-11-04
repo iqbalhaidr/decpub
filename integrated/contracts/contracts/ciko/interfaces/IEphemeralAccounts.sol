@@ -12,7 +12,7 @@ interface IEphemeralAccounts {
         bool exists;
         Role role;
         bytes32 sessionId;
-        bytes32 identityCommitment;
+        bytes32 sessionCommitment;
         uint64 createdAt;
         bool revoked;
     }
@@ -21,7 +21,7 @@ interface IEphemeralAccounts {
         address indexed pseudonym,
         bytes32 indexed sessionId,
         Role indexed role,
-        bytes32 identityCommitment,
+        bytes32 sessionCommitment,
         uint64 createdAt
     );
 
@@ -35,19 +35,17 @@ interface IEphemeralAccounts {
     error OnlySessionManager();
     error PseudonymAlreadyExists();
     error CommitmentAlreadyUsedInSession();
-    error CommitmentAlreadyUsedGlobally();
     error InvalidCommitment();
     error InvalidPseudonym();
     error InvalidSession();
     error AccountNotFound();
     error AccountRevoked();
-    error PermanentAccountNotRegistered();
 
     function createEphemeral(
         address pseudonym,
         bytes32 sessionId,
         Role role,
-        bytes32 identityCommitment
+        bytes32 sessionCommitment
     ) external;
 
     function revokeEphemeral(address pseudonym) external;
@@ -66,13 +64,11 @@ interface IEphemeralAccounts {
 
     function isCommitmentUsedInSession(
         bytes32 sessionId,
-        bytes32 identityCommitment
+        bytes32 sessionCommitment
     ) external view returns (bool);
 
     function isPseudonymUsedInSession(
         bytes32 sessionId,
         address pseudonym
     ) external view returns (bool);
-
-    function isCommitmentUsedGlobally(bytes32 identityCommitment) external view returns (bool);
 }

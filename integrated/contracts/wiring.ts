@@ -7,10 +7,16 @@
  * Pola mengikuti `Ciko/.../contracts/test/FullFlow.test.ts:147-180`. Kode Ciko
  * sendiri tidak memberi izin apa pun saat deploy (`FullSystem.ts`), sehingga
  * panggilan server gagal `OnlySessionManager` pada deployment baru.
+ *
+ * M0 memakai operator sebagai session manager. M2 menggantinya dengan `ActionGateway`.
  */
 
-/** Delapan kontrak Ciko yang punya `setSessionManager` dan dipanggil operator. */
-export const OPERATOR_MANAGED = [
+/**
+ * Delapan kontrak Ciko yang punya `setSessionManager`. Sejak M2 yang menjadi session
+ * manager di semuanya adalah `ActionGateway`, bukan operator (server). Operator tidak
+ * punya hak langsung ke kontrak Ciko.
+ */
+export const GATEWAY_MANAGED = [
   'EphemeralAccounts',
   'PublicationSessions',
   'AutomaticChecks',
@@ -45,3 +51,6 @@ export const CIKO_CONTRACTS = [
 ] as const;
 
 export type CikoContract = (typeof CIKO_CONTRACTS)[number];
+
+/** Kontrak baru M2, di luar sembilan kontrak Ciko. */
+export const INTEGRATED_CONTRACTS = ['SimulatedZkVerifier', 'ActionGateway'] as const;

@@ -87,9 +87,7 @@ async function deploy() {
   const wallets = (await viem.getWalletClients()) as TestWallet[];
 
   const permanentAccounts = await viem.deployContract('PermanentAccounts', []);
-  const ephemeralAccounts = await viem.deployContract('EphemeralAccounts', [
-    permanentAccounts.address,
-  ]);
+  const ephemeralAccounts = await viem.deployContract('EphemeralAccounts', []);
   const publicationSessions = await viem.deployContract('PublicationSessions', [
     ephemeralAccounts.address,
   ]);

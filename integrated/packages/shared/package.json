@@ -3,18 +3,20 @@
   "version": "0.1.0",
   "private": true,
   "type": "module",
-  "description": "Kode bersama server, skrip, dan frontend: StorageProvider (M1), nanti ABI, EIP-712, ZkProver.",
+  "description": "Kode bersama server, skrip, dan frontend: StorageProvider (M1), kripto klien, ZkProver, aksi EIP-712, ABI (M2).",
   "exports": {
     ".": "./src/index.ts",
-    "./testing": "./src/testing.ts"
+    "./testing": "./src/testing.ts",
+    "./node": "./src/node.ts"
   },
   "scripts": {
-    "test": "node --import tsx --test test/unit.test.ts",
+    "test": "node --import tsx --test test/unit.test.ts test/crypto.test.ts",
     "test:external": "node --env-file-if-exists=../../.env --import tsx --test test/external.test.ts",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "multiformats": "^13.3.0"
+    "multiformats": "^13.3.0",
+    "viem": "^2.47.6"
   },
   "devDependencies": {
     "@types/node": "^22.8.5",
