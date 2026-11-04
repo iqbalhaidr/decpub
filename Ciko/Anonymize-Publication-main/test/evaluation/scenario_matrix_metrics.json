@@ -1,0 +1,229 @@
+[
+  {
+    "suite": "Scenario Matrix",
+    "scenario": "Reviewer Scenario: N=1 (Uniform)",
+    "generatedAt": "2026-06-30T19:24:33.270Z",
+    "metrics": {
+      "anonymitySetSize": 1,
+      "sensitiveFieldCount": 0,
+      "commitSensitiveCount": 0,
+      "revealSensitiveCount": 0,
+      "exposureDelta": 0,
+      "forbiddenIdentityFieldCount": 0,
+      "pseudonymousFieldCount": 0,
+      "reviewerSelectionDensity": 0.2,
+      "additionalReviewerRatio": 0,
+      "entropy": 0,
+      "maxEntropy": 0,
+      "effectiveAnonymitySetSize": 1,
+      "degreeOfAnonymity": 0
+    },
+    "notes": "Artifact generated automatically for thesis evaluation chapter."
+  },
+  {
+    "suite": "Scenario Matrix",
+    "scenario": "Reviewer Scenario: N=2 (Uniform)",
+    "generatedAt": "2026-06-30T19:24:33.274Z",
+    "metrics": {
+      "anonymitySetSize": 2,
+      "sensitiveFieldCount": 0,
+      "commitSensitiveCount": 0,
+      "revealSensitiveCount": 0,
+      "exposureDelta": 0,
+      "forbiddenIdentityFieldCount": 0,
+      "pseudonymousFieldCount": 0,
+      "reviewerSelectionDensity": 0.4,
+      "additionalReviewerRatio": 0,
+      "entropy": 1,
+      "maxEntropy": 1,
+      "effectiveAnonymitySetSize": 2,
+      "degreeOfAnonymity": 1
+    },
+    "notes": "Artifact generated automatically for thesis evaluation chapter."
+  },
+  {
+    "suite": "Scenario Matrix",
+    "scenario": "Reviewer Scenario: N=3 (Uniform)",
+    "generatedAt": "2026-06-30T19:24:33.277Z",
+    "metrics": {
+      "anonymitySetSize": 3,
+      "sensitiveFieldCount": 0,
+      "commitSensitiveCount": 0,
+      "revealSensitiveCount": 0,
+      "exposureDelta": 0,
+      "forbiddenIdentityFieldCount": 0,
+      "pseudonymousFieldCount": 0,
+      "reviewerSelectionDensity": 0.6,
+      "additionalReviewerRatio": 0,
+      "entropy": 1.584962500721156,
+      "maxEntropy": 1.584962500721156,
+      "effectiveAnonymitySetSize": 3,
+      "degreeOfAnonymity": 1
+    },
+    "notes": "Artifact generated automatically for thesis evaluation chapter."
+  },
+  {
+    "suite": "Scenario Matrix",
+    "scenario": "Reviewer Scenario: N=4 (Uniform)",
+    "generatedAt": "2026-06-30T19:24:33.282Z",
+    "metrics": {
+      "anonymitySetSize": 4,
+      "sensitiveFieldCount": 0,
+      "commitSensitiveCount": 0,
+      "revealSensitiveCount": 0,
+      "exposureDelta": 0,
+      "forbiddenIdentityFieldCount": 0,
+      "pseudonymousFieldCount": 0,
+      "reviewerSelectionDensity": 0.8,
+      "additionalReviewerRatio": 0,
+      "entropy": 2,
+      "maxEntropy": 2,
+      "effectiveAnonymitySetSize": 4,
+      "degreeOfAnonymity": 1
+    },
+    "notes": "Artifact generated automatically for thesis evaluation chapter."
+  },
+  {
+    "suite": "Scenario Matrix",
+    "scenario": "Reviewer Scenario: Gray-Zone (2 + 1 additional, Uniform)",
+    "generatedAt": "2026-06-30T19:24:33.287Z",
+    "metrics": {
+      "anonymitySetSize": 3,
+      "sensitiveFieldCount": 0,
+      "commitSensitiveCount": 0,
+      "revealSensitiveCount": 0,
+      "exposureDelta": 0,
+      "forbiddenIdentityFieldCount": 0,
+      "pseudonymousFieldCount": 0,
+      "reviewerSelectionDensity": 0.6,
+      "additionalReviewerRatio": 0.2,
+      "entropy": 1.584962500721156,
+      "maxEntropy": 1.584962500721156,
+      "effectiveAnonymitySetSize": 3,
+      "degreeOfAnonymity": 1
+    },
+    "notes": "Artifact generated automatically for thesis evaluation chapter."
+  },
+  {
+    "suite": "Scenario Matrix",
+    "scenario": "Reviewer Scenario: N=3 Skewed [0.7, 0.2, 0.1]",
+    "generatedAt": "2026-06-30T19:24:33.293Z",
+    "metrics": {
+      "anonymitySetSize": 3,
+      "probabilityDistribution": [
+        0.7,
+        0.2,
+        0.1
+      ],
+      "sensitiveFieldCount": 0,
+      "commitSensitiveCount": 0,
+      "revealSensitiveCount": 0,
+      "exposureDelta": 0,
+      "forbiddenIdentityFieldCount": 0,
+      "pseudonymousFieldCount": 0,
+      "reviewerSelectionDensity": 0.6,
+      "additionalReviewerRatio": 0,
+      "entropy": 1.1567796494470395,
+      "maxEntropy": 1.584962500721156,
+      "effectiveAnonymitySetSize": 2.229591873920416,
+      "degreeOfAnonymity": 0.7298466991620975
+    },
+    "notes": "Artifact generated automatically for thesis evaluation chapter."
+  },
+  {
+    "suite": "Scenario Matrix",
+    "scenario": "Reviewer Scenario: N=4 Skewed [0.4, 0.3, 0.2, 0.1]",
+    "generatedAt": "2026-06-30T19:24:33.299Z",
+    "metrics": {
+      "anonymitySetSize": 4,
+      "probabilityDistribution": [
+        0.4,
+        0.3,
+        0.2,
+        0.1
+      ],
+      "sensitiveFieldCount": 0,
+      "commitSensitiveCount": 0,
+      "revealSensitiveCount": 0,
+      "exposureDelta": 0,
+      "forbiddenIdentityFieldCount": 0,
+      "pseudonymousFieldCount": 0,
+      "reviewerSelectionDensity": 0.8,
+      "additionalReviewerRatio": 0,
+      "entropy": 1.8464393446710154,
+      "maxEntropy": 2,
+      "effectiveAnonymitySetSize": 3.5961154666243216,
+      "degreeOfAnonymity": 0.9232196723355077
+    },
+    "notes": "Artifact generated automatically for thesis evaluation chapter."
+  },
+  {
+    "suite": "Scenario Matrix",
+    "scenario": "Public View Scenario: Complete Public View",
+    "generatedAt": "2026-06-30T19:24:33.305Z",
+    "metrics": {
+      "anonymitySetSize": 1,
+      "sensitiveFieldCount": 0,
+      "commitSensitiveCount": 0,
+      "revealSensitiveCount": 0,
+      "exposureDelta": 0,
+      "forbiddenIdentityFieldCount": 0,
+      "pseudonymousFieldCount": 0,
+      "reviewerSelectionDensity": 0,
+      "additionalReviewerRatio": 0,
+      "supportsFormalEntropy": false,
+      "reasonNoEntropy": "Public audit trail evaluates forbidden identity leakage, not candidate entropy.",
+      "entropy": 0,
+      "maxEntropy": 0,
+      "effectiveAnonymitySetSize": 1,
+      "degreeOfAnonymity": 0
+    },
+    "notes": "Artifact generated automatically for thesis evaluation chapter."
+  },
+  {
+    "suite": "Scenario Matrix",
+    "scenario": "Public View Scenario: Partial Public View (missing auto check)",
+    "generatedAt": "2026-06-30T19:24:33.308Z",
+    "metrics": {
+      "anonymitySetSize": 1,
+      "sensitiveFieldCount": 0,
+      "commitSensitiveCount": 0,
+      "revealSensitiveCount": 0,
+      "exposureDelta": 0,
+      "forbiddenIdentityFieldCount": 0,
+      "pseudonymousFieldCount": 0,
+      "reviewerSelectionDensity": 0,
+      "additionalReviewerRatio": 0,
+      "supportsFormalEntropy": false,
+      "reasonNoEntropy": "Public audit trail evaluates forbidden identity leakage, not candidate entropy.",
+      "entropy": 0,
+      "maxEntropy": 0,
+      "effectiveAnonymitySetSize": 1,
+      "degreeOfAnonymity": 0
+    },
+    "notes": "Artifact generated automatically for thesis evaluation chapter."
+  },
+  {
+    "suite": "Scenario Matrix",
+    "scenario": "Public View Scenario: Partial Public View (missing editorial screening)",
+    "generatedAt": "2026-06-30T19:24:33.312Z",
+    "metrics": {
+      "anonymitySetSize": 1,
+      "sensitiveFieldCount": 0,
+      "commitSensitiveCount": 0,
+      "revealSensitiveCount": 0,
+      "exposureDelta": 0,
+      "forbiddenIdentityFieldCount": 0,
+      "pseudonymousFieldCount": 0,
+      "reviewerSelectionDensity": 0,
+      "additionalReviewerRatio": 0,
+      "supportsFormalEntropy": false,
+      "reasonNoEntropy": "Public audit trail evaluates forbidden identity leakage, not candidate entropy.",
+      "entropy": 0,
+      "maxEntropy": 0,
+      "effectiveAnonymitySetSize": 1,
+      "degreeOfAnonymity": 0
+    },
+    "notes": "Artifact generated automatically for thesis evaluation chapter."
+  }
+]

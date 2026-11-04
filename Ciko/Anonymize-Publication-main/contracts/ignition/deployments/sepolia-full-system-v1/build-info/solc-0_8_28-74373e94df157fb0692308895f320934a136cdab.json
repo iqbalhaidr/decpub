@@ -1,0 +1,56 @@
+{
+  "_format": "hh3-sol-build-info-1",
+  "id": "solc-0_8_28-74373e94df157fb0692308895f320934a136cdab",
+  "solcVersion": "0.8.28",
+  "solcLongVersion": "0.8.28+commit.7893614a",
+  "compilerType": "solc",
+  "toolVersions": {
+    "hardhat": "3.4.5"
+  },
+  "userSourceNameMap": {
+    "contracts/PermanentAccounts.sol": "project/contracts/PermanentAccounts.sol"
+  },
+  "input": {
+    "language": "Solidity",
+    "settings": {
+      "evmVersion": "cancun",
+      "optimizer": {
+        "enabled": true,
+        "runs": 200,
+        "details": {
+          "yul": true
+        }
+      },
+      "outputSelection": {
+        "*": {
+          "": [
+            "ast"
+          ],
+          "*": [
+            "abi",
+            "evm.bytecode.linkReferences",
+            "evm.bytecode.object",
+            "evm.bytecode.opcodes",
+            "evm.bytecode.sourceMap",
+            "evm.deployedBytecode.immutableReferences",
+            "evm.deployedBytecode.linkReferences",
+            "evm.deployedBytecode.object",
+            "evm.deployedBytecode.opcodes",
+            "evm.deployedBytecode.sourceMap",
+            "evm.methodIdentifiers"
+          ]
+        }
+      },
+      "remappings": [],
+      "viaIR": true
+    },
+    "sources": {
+      "project/contracts/interfaces/IPermanentAccounts.sol": {
+        "content": "// SPDX-License-Identifier: MIT\npragma solidity ^0.8.28;\n\ninterface IPermanentAccounts {\n    struct PermanentAccount {\n        bool exists;\n        uint64 registeredAt;\n        bytes32 identityCommitment;\n    }\n\n    event PermanentAccountRegistered(\n        address indexed account,\n        bytes32 indexed identityCommitment,\n        uint64 registeredAt\n    );\n\n    error OnlyAdmin();\n    error InvalidAccount();\n    error InvalidCommitment();\n    error ArrayLengthMismatch();\n    error AccountAlreadyRegistered();\n    error CommitmentAlreadyUsed();\n    error AccountNotRegistered();\n\n    function admin() external view returns (address);\n\n    function register(bytes32 identityCommitment) external;\n\n    function adminRegister(address account, bytes32 identityCommitment) external;\n\n    function adminBatchRegister(\n        address[] calldata accounts,\n        bytes32[] calldata identityCommitments\n    ) external;\n\n    function getMyAccount() external view returns (PermanentAccount memory);\n\n    function getAccount(address account) external view returns (PermanentAccount memory);\n\n    function isRegistered(address account) external view returns (bool);\n\n    function getIdentityCommitment(address account) external view returns (bytes32);\n\n    function isCommitmentUsed(bytes32 identityCommitment) external view returns (bool);\n}\n"
+      },
+      "project/contracts/PermanentAccounts.sol": {
+        "content": "// SPDX-License-Identifier: MIT\npragma solidity ^0.8.28;\n\nimport \"./interfaces/IPermanentAccounts.sol\";\n\ncontract PermanentAccounts is IPermanentAccounts {\n    address public immutable override admin;\n\n    mapping(address => PermanentAccount) private _accounts;\n    mapping(bytes32 => bool) private _usedCommitments;\n\n    constructor() {\n        admin = msg.sender;\n    }\n\n    modifier onlyAdmin() {\n        if (msg.sender != admin) revert OnlyAdmin();\n        _;\n    }\n\n    function register(bytes32 identityCommitment) external override {\n        _register(msg.sender, identityCommitment);\n    }\n\n    function adminRegister(\n        address account,\n        bytes32 identityCommitment\n    ) external override onlyAdmin {\n        _register(account, identityCommitment);\n    }\n\n    function adminBatchRegister(\n        address[] calldata accounts,\n        bytes32[] calldata identityCommitments\n    ) external override onlyAdmin {\n        uint256 length = accounts.length;\n        if (length != identityCommitments.length) revert ArrayLengthMismatch();\n        for (uint256 i; i < length; ) {\n            _register(accounts[i], identityCommitments[i]);\n            unchecked {\n                ++i;\n            }\n        }\n    }\n\n    function getMyAccount() external view override returns (PermanentAccount memory) {\n        return _getOrRevert(msg.sender);\n    }\n\n    function getAccount(address account) external view override returns (PermanentAccount memory) {\n        return _getOrRevert(account);\n    }\n\n    function isRegistered(address account) external view override returns (bool) {\n        return _accounts[account].exists;\n    }\n\n    function getIdentityCommitment(address account) external view override returns (bytes32) {\n        return _getOrRevert(account).identityCommitment;\n    }\n\n    function isCommitmentUsed(bytes32 identityCommitment) external view override returns (bool) {\n        return _usedCommitments[identityCommitment];\n    }\n\n    function _getOrRevert(address account) internal view returns (PermanentAccount memory data) {\n        data = _accounts[account];\n        if (!data.exists) revert AccountNotRegistered();\n    }\n\n    function _register(address account, bytes32 identityCommitment) internal {\n        if (account == address(0)) revert InvalidAccount();\n        if (identityCommitment == bytes32(0)) revert InvalidCommitment();\n        if (_accounts[account].exists) revert AccountAlreadyRegistered();\n        if (_usedCommitments[identityCommitment]) revert CommitmentAlreadyUsed();\n\n        uint64 ts = uint64(block.timestamp);\n        _accounts[account] = PermanentAccount({\n            exists: true,\n            registeredAt: ts,\n            identityCommitment: identityCommitment\n        });\n        _usedCommitments[identityCommitment] = true;\n\n        emit PermanentAccountRegistered(account, identityCommitment, ts);\n    }\n}\n"
+      }
+    }
+  }
+}

@@ -1,0 +1,279 @@
+{
+  "_format": "hh3-artifact-1",
+  "contractName": "PermanentAccounts",
+  "sourceName": "contracts/PermanentAccounts.sol",
+  "abi": [
+    {
+      "inputs": [],
+      "stateMutability": "nonpayable",
+      "type": "constructor"
+    },
+    {
+      "inputs": [],
+      "name": "AccountAlreadyRegistered",
+      "type": "error"
+    },
+    {
+      "inputs": [],
+      "name": "AccountNotRegistered",
+      "type": "error"
+    },
+    {
+      "inputs": [],
+      "name": "ArrayLengthMismatch",
+      "type": "error"
+    },
+    {
+      "inputs": [],
+      "name": "CommitmentAlreadyUsed",
+      "type": "error"
+    },
+    {
+      "inputs": [],
+      "name": "InvalidAccount",
+      "type": "error"
+    },
+    {
+      "inputs": [],
+      "name": "InvalidCommitment",
+      "type": "error"
+    },
+    {
+      "inputs": [],
+      "name": "OnlyAdmin",
+      "type": "error"
+    },
+    {
+      "anonymous": false,
+      "inputs": [
+        {
+          "indexed": true,
+          "internalType": "address",
+          "name": "account",
+          "type": "address"
+        },
+        {
+          "indexed": true,
+          "internalType": "bytes32",
+          "name": "identityCommitment",
+          "type": "bytes32"
+        },
+        {
+          "indexed": false,
+          "internalType": "uint64",
+          "name": "registeredAt",
+          "type": "uint64"
+        }
+      ],
+      "name": "PermanentAccountRegistered",
+      "type": "event"
+    },
+    {
+      "inputs": [],
+      "name": "admin",
+      "outputs": [
+        {
+          "internalType": "address",
+          "name": "",
+          "type": "address"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "address[]",
+          "name": "accounts",
+          "type": "address[]"
+        },
+        {
+          "internalType": "bytes32[]",
+          "name": "identityCommitments",
+          "type": "bytes32[]"
+        }
+      ],
+      "name": "adminBatchRegister",
+      "outputs": [],
+      "stateMutability": "nonpayable",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "address",
+          "name": "account",
+          "type": "address"
+        },
+        {
+          "internalType": "bytes32",
+          "name": "identityCommitment",
+          "type": "bytes32"
+        }
+      ],
+      "name": "adminRegister",
+      "outputs": [],
+      "stateMutability": "nonpayable",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "address",
+          "name": "account",
+          "type": "address"
+        }
+      ],
+      "name": "getAccount",
+      "outputs": [
+        {
+          "components": [
+            {
+              "internalType": "bool",
+              "name": "exists",
+              "type": "bool"
+            },
+            {
+              "internalType": "uint64",
+              "name": "registeredAt",
+              "type": "uint64"
+            },
+            {
+              "internalType": "bytes32",
+              "name": "identityCommitment",
+              "type": "bytes32"
+            }
+          ],
+          "internalType": "struct IPermanentAccounts.PermanentAccount",
+          "name": "",
+          "type": "tuple"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "address",
+          "name": "account",
+          "type": "address"
+        }
+      ],
+      "name": "getIdentityCommitment",
+      "outputs": [
+        {
+          "internalType": "bytes32",
+          "name": "",
+          "type": "bytes32"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [],
+      "name": "getMyAccount",
+      "outputs": [
+        {
+          "components": [
+            {
+              "internalType": "bool",
+              "name": "exists",
+              "type": "bool"
+            },
+            {
+              "internalType": "uint64",
+              "name": "registeredAt",
+              "type": "uint64"
+            },
+            {
+              "internalType": "bytes32",
+              "name": "identityCommitment",
+              "type": "bytes32"
+            }
+          ],
+          "internalType": "struct IPermanentAccounts.PermanentAccount",
+          "name": "",
+          "type": "tuple"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "bytes32",
+          "name": "identityCommitment",
+          "type": "bytes32"
+        }
+      ],
+      "name": "isCommitmentUsed",
+      "outputs": [
+        {
+          "internalType": "bool",
+          "name": "",
+          "type": "bool"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "address",
+          "name": "account",
+          "type": "address"
+        }
+      ],
+      "name": "isRegistered",
+      "outputs": [
+        {
+          "internalType": "bool",
+          "name": "",
+          "type": "bool"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "bytes32",
+          "name": "identityCommitment",
+          "type": "bytes32"
+        }
+      ],
+      "name": "register",
+      "outputs": [],
+      "stateMutability": "nonpayable",
+      "type": "function"
+    }
+  ],
+  "bytecode": "0x60a08060405234602f57336080526105bd9081610034823960805181818160f6015281816101ef015261028e0152f35b5f80fdfe60806040526004361015610011575f80fd5b5f3560e01c80631ac505a1146103185780636b9d0e2d14610239578063b19fea31146101d4578063b61b395c146101a5578063c0606f3914610180578063c3c5a54714610144578063e1fa8e8414610125578063f851a440146100e15763fbcbc0f11461007c575f80fd5b346100dd5760203660031901126100dd576100d96100a961009b610347565b6100a36103e6565b50610400565b6040805182511515815260208084015167ffffffffffffffff169082015291810151908201529081906060820190565b0390f35b5f80fd5b346100dd575f3660031901126100dd576040517f00000000000000000000000000000000000000000000000000000000000000006001600160a01b03168152602090f35b346100dd5760203660031901126100dd5761014260043533610466565b005b346100dd5760203660031901126100dd576001600160a01b03610165610347565b165f525f602052602060ff60405f2054166040519015158152f35b346100dd575f3660031901126100dd576101986103e6565b506100d96100a933610400565b346100dd5760203660031901126100dd576004355f526001602052602060ff60405f2054166040519015158152f35b346100dd5760403660031901126100dd576101ed610347565b7f00000000000000000000000000000000000000000000000000000000000000006001600160a01b0316330361022a576101429060243590610466565b634755657960e01b5f5260045ffd5b346100dd5760403660031901126100dd5760043567ffffffffffffffff81116100dd5761026a90369060040161035d565b9060243567ffffffffffffffff81116100dd5761028b90369060040161035d565b927f00000000000000000000000000000000000000000000000000000000000000006001600160a01b0316330361022a57838103610309575f5b8181106102ce57005b6102d981838661038e565b35906001600160a01b03821682036100dd576103036001926102fc83898861038e565b3590610466565b016102c5565b63512509d360e11b5f5260045ffd5b346100dd5760203660031901126100dd576020604061033d610338610347565b610400565b0151604051908152f35b600435906001600160a01b03821682036100dd57565b9181601f840112156100dd5782359167ffffffffffffffff83116100dd576020808501948460051b0101116100dd57565b919081101561039e5760051b0190565b634e487b7160e01b5f52603260045260245ffd5b604051906060820182811067ffffffffffffffff8211176103d257604052565b634e487b7160e01b5f52604160045260245ffd5b6103ee6103b2565b905f82525f60208301525f6040830152565b6104086103e6565b506001600160a01b03165f908152602081905260409020906104286103b2565b600183549367ffffffffffffffff60ff861615958615855260081c166020840152015460408201529161045757565b639704dd5160e01b5f5260045ffd5b6001600160a01b0316801561057857811561056957805f525f60205260ff60405f20541661055a57815f52600160205260ff60405f20541661054b577f7ea1e2a35018f5ad462171570c81b609f9771c2dccd34a24bfc6cff67ded4d60602067ffffffffffffffff42166104d86103b2565b6001815260018382018381526040830190888252875f525f865260405f209351151560ff801986541691161784555168ffffffffffffffff0084549160081b169068ffffffffffffffff00191617835551910155845f526001825260405f20600160ff19825416179055604051908152a3565b635be00f0f60e11b5f5260045ffd5b63cff2d5ad60e01b5f5260045ffd5b636033c4fd60e11b5f5260045ffd5b630da30f6560e31b5f5260045ffdfea264697066735822122010f4131edcbfe060ecddf8e8dd29a586d4e8fc34ca474d89ec757a2887da0db064736f6c634300081c0033",
+  "deployedBytecode": "0x60806040526004361015610011575f80fd5b5f3560e01c80631ac505a1146103185780636b9d0e2d14610239578063b19fea31146101d4578063b61b395c146101a5578063c0606f3914610180578063c3c5a54714610144578063e1fa8e8414610125578063f851a440146100e15763fbcbc0f11461007c575f80fd5b346100dd5760203660031901126100dd576100d96100a961009b610347565b6100a36103e6565b50610400565b6040805182511515815260208084015167ffffffffffffffff169082015291810151908201529081906060820190565b0390f35b5f80fd5b346100dd575f3660031901126100dd576040517f00000000000000000000000000000000000000000000000000000000000000006001600160a01b03168152602090f35b346100dd5760203660031901126100dd5761014260043533610466565b005b346100dd5760203660031901126100dd576001600160a01b03610165610347565b165f525f602052602060ff60405f2054166040519015158152f35b346100dd575f3660031901126100dd576101986103e6565b506100d96100a933610400565b346100dd5760203660031901126100dd576004355f526001602052602060ff60405f2054166040519015158152f35b346100dd5760403660031901126100dd576101ed610347565b7f00000000000000000000000000000000000000000000000000000000000000006001600160a01b0316330361022a576101429060243590610466565b634755657960e01b5f5260045ffd5b346100dd5760403660031901126100dd5760043567ffffffffffffffff81116100dd5761026a90369060040161035d565b9060243567ffffffffffffffff81116100dd5761028b90369060040161035d565b927f00000000000000000000000000000000000000000000000000000000000000006001600160a01b0316330361022a57838103610309575f5b8181106102ce57005b6102d981838661038e565b35906001600160a01b03821682036100dd576103036001926102fc83898861038e565b3590610466565b016102c5565b63512509d360e11b5f5260045ffd5b346100dd5760203660031901126100dd576020604061033d610338610347565b610400565b0151604051908152f35b600435906001600160a01b03821682036100dd57565b9181601f840112156100dd5782359167ffffffffffffffff83116100dd576020808501948460051b0101116100dd57565b919081101561039e5760051b0190565b634e487b7160e01b5f52603260045260245ffd5b604051906060820182811067ffffffffffffffff8211176103d257604052565b634e487b7160e01b5f52604160045260245ffd5b6103ee6103b2565b905f82525f60208301525f6040830152565b6104086103e6565b506001600160a01b03165f908152602081905260409020906104286103b2565b600183549367ffffffffffffffff60ff861615958615855260081c166020840152015460408201529161045757565b639704dd5160e01b5f5260045ffd5b6001600160a01b0316801561057857811561056957805f525f60205260ff60405f20541661055a57815f52600160205260ff60405f20541661054b577f7ea1e2a35018f5ad462171570c81b609f9771c2dccd34a24bfc6cff67ded4d60602067ffffffffffffffff42166104d86103b2565b6001815260018382018381526040830190888252875f525f865260405f209351151560ff801986541691161784555168ffffffffffffffff0084549160081b169068ffffffffffffffff00191617835551910155845f526001825260405f20600160ff19825416179055604051908152a3565b635be00f0f60e11b5f5260045ffd5b63cff2d5ad60e01b5f5260045ffd5b636033c4fd60e11b5f5260045ffd5b630da30f6560e31b5f5260045ffdfea264697066735822122010f4131edcbfe060ecddf8e8dd29a586d4e8fc34ca474d89ec757a2887da0db064736f6c634300081c0033",
+  "linkReferences": {},
+  "deployedLinkReferences": {},
+  "immutableReferences": {
+    "7": [
+      {
+        "length": 32,
+        "start": 246
+      },
+      {
+        "length": 32,
+        "start": 495
+      },
+      {
+        "length": 32,
+        "start": 654
+      }
+    ]
+  },
+  "inputSourceName": "project/contracts/PermanentAccounts.sol",
+  "buildInfoId": "solc-0_8_28-74373e94df157fb0692308895f320934a136cdab"
+}

@@ -1,0 +1,77 @@
+package db
+
+import (
+	"database/sql"
+	_ "embed"
+	"fmt"
+	"time"
+
+	_ "github.com/lib/pq"
+	"github.com/mroihn/ta-proj/backend-go/internal/config"
+)
+
+//go:embed migrations/001_initial_schema.up.sql
+var migration001 string
+
+//go:embed migrations/002_processed_events_ms_id.up.sql
+var migration002 string
+
+//go:embed migrations/003_submit_timestamp.up.sql
+var migration003 string
+
+//go:embed migrations/004_review_cid.up.sql
+var migration004 string
+
+//go:embed migrations/005_session_wallets.up.sql
+var migration005 string
+
+//go:embed migrations/006_user_role.up.sql
+var migration006 string
+
+//go:embed migrations/007_editor_and_verification.up.sql
+var migration007 string
+
+//go:embed migrations/008_seed_reviewers.up.sql
+var migration008 string
+
+//go:embed migrations/009_widen_reviewer_session_field.up.sql
+var migration009 string
+
+//go:embed migrations/010_review_versions_and_comments.up.sql
+var migration010 string
+
+//go:embed migrations/011_identity_verification.up.sql
+var migration011 string
+
+//go:embed migrations/012_drop_onchain_mirror_tables.up.sql
+var migration012 string
+
+//go:embed migrations/013_journals.up.sql
+var migration013 string
+
+func Open(cfg *config.Config) (*sql.DB, error) {
+	dsn := fmt.Sprintf(
+		"host=%s port=%s user=%s password=%s dbname=%s sslmode=%s",
+		cfg.DBHost, cfg.DBPort, cfg.DBUser, cfg.DBPassword, cfg.DBName, cfg.DBSSLMode,
+	)
+	db, err := sql.Open("postgres", dsn)
+	if err != nil {
+		return nil, err
+	}
+	db.SetMaxOpenConns(25)
+	db.SetMaxIdleConns(10)
+	db.SetConnMaxLifetime(5 * time.Minute)
+	if err := db.Ping(); err != nil {
+		return nil, fmt.Errorf("postgres ping failed: %w", err)
+	}
+	return db, nil
+}
+
+func RunMigrations(db *sql.DB) error {
+	for _, sql := range []string{migration001, migration002, migration003, migration004, migration005, migration006, migration007, migration008, migration009, migration010, migration011, migration012, migration013} {
+		if _, err := db.Exec(sql); err != nil {
+			return err
+		}
+	}
+	return nil
+}

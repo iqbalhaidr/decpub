@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>OJS Incentive Mechanism</title>
+<style>
+:root{--bg:#f8f8f8;--surface:#fff;--border:#ddd;--text:#1a1a1a;--muted:#666;--accent:#2b6cb0}
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:'Segoe UI',system-ui,sans-serif;background:var(--bg);color:var(--text);font-size:14px;line-height:1.6;display:flex;align-items:center;justify-content:center;min-height:100vh}
+a{color:var(--accent);text-decoration:none}
+.wrapper{max-width:760px;width:100%;padding:40px 24px;text-align:center}
+h1{font-size:1.4rem;font-weight:700;margin-bottom:6px}
+.subtitle{font-size:.88rem;color:var(--muted);margin-bottom:14px}
+.pick{font-size:.8rem;font-weight:700;letter-spacing:.04em;color:var(--muted);text-transform:uppercase;margin:26px 0 14px}
+.cards{display:grid;grid-template-columns:1fr 1fr;gap:20px}
+.card{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:26px 22px;text-align:left;transition:border-color .15s,box-shadow .15s;cursor:pointer;text-decoration:none;color:var(--text);display:block}
+.card:hover{border-color:var(--accent);box-shadow:0 2px 12px rgba(0,0,0,.08)}
+.card .tag{display:inline-block;font-size:.68rem;font-weight:700;padding:2px 8px;border-radius:999px;margin-bottom:10px}
+.tag.local{background:#eef2ff;color:#3730a3}
+.tag.chain{background:#fff3e0;color:#9a5b00}
+.card h2{font-size:1.05rem;font-weight:700;margin-bottom:8px}
+.card p{font-size:.82rem;color:var(--muted);line-height:1.5}
+.card .arrow{display:inline-block;margin-top:14px;font-size:.8rem;font-weight:700;color:var(--accent)}
+.flow{margin-top:22px;font-size:.8rem;color:var(--muted);background:#fafafa;border:1px solid var(--border);padding:12px 14px;border-radius:8px;text-align:left}
+.flow strong{color:var(--text)}
+.secondary{margin-top:24px;font-size:.82rem;color:var(--muted);border-top:1px solid var(--border);padding-top:16px}
+.secondary a{margin:0 8px}
+@media(max-width:560px){.cards{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+<div class="wrapper">
+  <h1>Mekanisme Insentif Hibrida &mdash; Peer Review + Blockchain</h1>
+  <p class="subtitle">BWM + ECWM + TOPSIS + Sigmoid &middot; Imbalan Ganda (ETH + Soulbound Token)</p>
+
+  <div class="pick">Pilih mode demo</div>
+  <div class="cards">
+    <a class="card" href="/pipeline.html">
+      <span class="tag local">Lokal</span>
+      <h2>Demo Hardhat</h2>
+      <!-- <p>Jaringan EVM <em>in-process</em>. Flow lengkap: input QoS &rarr; bobot editor (BWM) &rarr; perangkingan TOPSIS &rarr; distribusi. Cepat, tanpa MetaMask, ditandatangani server.</p> -->
+      <span class="arrow">Buka Pipeline &rarr;</span>
+    </a>
+    <a class="card" href="/sepolia.html">
+      <span class="tag chain">Testnet Publik</span>
+      <h2>Demo Sepolia</h2>
+      <!-- <p>Jaringan publik nyata, dipisah per peran (Author / Reviewer / Editor / Public). Author deposit <em>escrow</em> via MetaMask, distribusi <em>on-chain</em>, plus <strong>riwayat transaksi</strong> &amp; verifikasi di Etherscan.</p> -->
+      <span class="arrow">Buka Demo Sepolia &rarr;</span>
+    </a>
+  </div>
+
+  <!-- <div class="flow">
+    <strong>Flow inti sama untuk keduanya:</strong> input data QoS &rarr; kebijakan bobot Editor &rarr; perangkingan &rarr; distribusi imbalan ganda. <strong>Beda:</strong> mode Sepolia mengeksekusi di jaringan publik (MetaMask + riwayat on-chain + Etherscan); mode Hardhat berjalan lokal untuk iterasi cepat.
+  </div> -->
+
+  <div class="secondary">
+    Lainnya:
+    <a href="/monitor.html">Monitor (deploy &amp; state lokal)</a> &middot;
+    <a href="/evaluation.html">Evaluasi (pengujian Bab VI)</a>
+  </div>
+</div>
+</body>
+</html>

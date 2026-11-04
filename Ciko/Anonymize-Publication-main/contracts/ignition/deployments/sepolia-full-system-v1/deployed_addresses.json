@@ -1,0 +1,11 @@
+{
+  "PermanentAccountsModule#PermanentAccounts": "0x0858B2C2B24dC901E1eaEfA01Ffea92A175ba201",
+  "EphemeralAccountsModule#EphemeralAccounts": "0xb49085e77Cc910D919478EA56140DA169C14CFaF",
+  "PublicationSessionsModule#PublicationSessions": "0x1881df4f647000c8CF6e2309F6e39cC830740877",
+  "AutomaticChecksModule#AutomaticChecks": "0x7d9a39B38EBbb11f757D03dB478b4Bd0f3693B23",
+  "AssignmentProofsModule#AssignmentProofs": "0x6224DeE0975259b99237CE357D827B3130685f69",
+  "EditorialScreeningsModule#EditorialScreenings": "0xc328c9c89726caa943CA721F454B17A2d889bc49",
+  "ReviewerSelectionsModule#ReviewerSelections": "0x86B88F22EcE9b9118538F7C596F6446aD46b5ca8",
+  "ReviewSubmissionsModule#ReviewSubmissions": "0x4604c8c8e2d91Ce3Bf5aeCaFA6D7938C8dAAd9e2",
+  "ReviewDecisionsModule#ReviewDecisions": "0xfd59695a9C2a7c50CB30608150FA66710e586904"
+}

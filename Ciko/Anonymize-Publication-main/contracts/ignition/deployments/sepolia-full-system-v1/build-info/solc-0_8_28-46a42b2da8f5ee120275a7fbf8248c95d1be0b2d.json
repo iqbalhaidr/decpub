@@ -1,0 +1,59 @@
+{
+  "_format": "hh3-sol-build-info-1",
+  "id": "solc-0_8_28-46a42b2da8f5ee120275a7fbf8248c95d1be0b2d",
+  "solcVersion": "0.8.28",
+  "solcLongVersion": "0.8.28+commit.7893614a",
+  "compilerType": "solc",
+  "toolVersions": {
+    "hardhat": "3.4.5"
+  },
+  "userSourceNameMap": {
+    "contracts/EphemeralAccounts.sol": "project/contracts/EphemeralAccounts.sol"
+  },
+  "input": {
+    "language": "Solidity",
+    "settings": {
+      "evmVersion": "cancun",
+      "optimizer": {
+        "enabled": true,
+        "runs": 200,
+        "details": {
+          "yul": true
+        }
+      },
+      "outputSelection": {
+        "*": {
+          "": [
+            "ast"
+          ],
+          "*": [
+            "abi",
+            "evm.bytecode.linkReferences",
+            "evm.bytecode.object",
+            "evm.bytecode.opcodes",
+            "evm.bytecode.sourceMap",
+            "evm.deployedBytecode.immutableReferences",
+            "evm.deployedBytecode.linkReferences",
+            "evm.deployedBytecode.object",
+            "evm.deployedBytecode.opcodes",
+            "evm.deployedBytecode.sourceMap",
+            "evm.methodIdentifiers"
+          ]
+        }
+      },
+      "remappings": [],
+      "viaIR": true
+    },
+    "sources": {
+      "project/contracts/EphemeralAccounts.sol": {
+        "content": "// SPDX-License-Identifier: MIT\npragma solidity ^0.8.28;\n\nimport \"./interfaces/IEphemeralAccounts.sol\";\nimport \"./interfaces/IPermanentAccounts.sol\";\n\ncontract EphemeralAccounts is IEphemeralAccounts {\n    address private _admin;\n    IPermanentAccounts private immutable _permanentAccounts;\n\n    mapping(address => EphemeralAccount) private _accounts;\n    mapping(address => bool) private _sessionManagers;\n    mapping(bytes32 => bool) private _usedCommitmentsInSession;\n    mapping(bytes32 => bool) private _usedPseudonymsInSession;\n    mapping(bytes32 => bool) private _usedCommitmentsGlobal;\n\n    modifier onlyAdmin() {\n        if (msg.sender != _admin) revert OnlyAdmin();\n        _;\n    }\n\n    modifier onlySessionManager() {\n        if (!_sessionManagers[msg.sender]) revert OnlySessionManager();\n        _;\n    }\n\n    constructor(address permanentAccountsAddr) {\n        _admin = msg.sender;\n        _permanentAccounts = IPermanentAccounts(permanentAccountsAddr);\n    }\n\n    function setSessionManager(address manager, bool authorized) external override onlyAdmin {\n        _sessionManagers[manager] = authorized;\n    }\n\n    function revokeEphemeral(address pseudonym) external override onlyAdmin {\n        EphemeralAccount storage acc = _accounts[pseudonym];\n        if (!acc.exists) revert AccountNotFound();\n        acc.revoked = true;\n        emit EphemeralAccountRevoked(pseudonym, acc.sessionId, uint64(block.timestamp));\n    }\n\n    function createEphemeral(\n        address pseudonym,\n        bytes32 sessionId,\n        Role role,\n        bytes32 identityCommitment\n    ) external override onlySessionManager {\n        if (pseudonym == address(0)) revert InvalidPseudonym();\n        if (sessionId == bytes32(0)) revert InvalidSession();\n        if (identityCommitment == bytes32(0)) revert InvalidCommitment();\n        if (_accounts[pseudonym].exists) revert PseudonymAlreadyExists();\n        if (_usedCommitmentsGlobal[identityCommitment]) revert CommitmentAlreadyUsedGlobally();\n        if (!_permanentAccounts.isCommitmentUsed(identityCommitment))\n            revert PermanentAccountNotRegistered();\n\n        bytes32 commitKey = keccak256(abi.encodePacked(sessionId, identityCommitment));\n        bytes32 pseudoKey = keccak256(abi.encodePacked(sessionId, pseudonym));\n\n        if (_usedCommitmentsInSession[commitKey]) revert CommitmentAlreadyUsedInSession();\n        if (_usedPseudonymsInSession[pseudoKey]) revert PseudonymAlreadyExists();\n\n        _accounts[pseudonym] = EphemeralAccount({\n            exists: true,\n            role: role,\n            sessionId: sessionId,\n            identityCommitment: identityCommitment,\n            createdAt: uint64(block.timestamp),\n            revoked: false\n        });\n\n        _usedCommitmentsGlobal[identityCommitment] = true;\n        _usedCommitmentsInSession[commitKey] = true;\n        _usedPseudonymsInSession[pseudoKey] = true;\n\n        emit EphemeralAccountCreated(\n            pseudonym,\n            sessionId,\n            role,\n            identityCommitment,\n            uint64(block.timestamp)\n        );\n    }\n\n    function admin() external view override returns (address) {\n        return _admin;\n    }\n    function isSessionManager(address addr) external view override returns (bool) {\n        return _sessionManagers[addr];\n    }\n\n    function isActive(address pseudonym) external view override returns (bool) {\n        EphemeralAccount storage acc = _accounts[pseudonym];\n        return acc.exists && !acc.revoked;\n    }\n\n    function exists(address pseudonym) external view override returns (bool) {\n        return _accounts[pseudonym].exists;\n    }\n\n    function getAccount(\n        address pseudonym\n    ) external view override returns (EphemeralAccount memory) {\n        EphemeralAccount memory acc = _accounts[pseudonym];\n        if (!acc.exists) revert AccountNotFound();\n        return acc;\n    }\n\n    function isCommitmentUsedInSession(\n        bytes32 sessionId,\n        bytes32 identityCommitment\n    ) external view override returns (bool) {\n        return\n            _usedCommitmentsInSession[keccak256(abi.encodePacked(sessionId, identityCommitment))];\n    }\n\n    function isPseudonymUsedInSession(\n        bytes32 sessionId,\n        address pseudonym\n    ) external view override returns (bool) {\n        return _usedPseudonymsInSession[keccak256(abi.encodePacked(sessionId, pseudonym))];\n    }\n\n    function isCommitmentUsedGlobally(\n        bytes32 identityCommitment\n    ) external view override returns (bool) {\n        return _usedCommitmentsGlobal[identityCommitment];\n    }\n}\n"
+      },
+      "project/contracts/interfaces/IEphemeralAccounts.sol": {
+        "content": "// SPDX-License-Identifier: MIT\npragma solidity ^0.8.28;\n\ninterface IEphemeralAccounts {\n    enum Role {\n        Author,\n        Reviewer,\n        Editor\n    }\n\n    struct EphemeralAccount {\n        bool exists;\n        Role role;\n        bytes32 sessionId;\n        bytes32 identityCommitment;\n        uint64 createdAt;\n        bool revoked;\n    }\n\n    event EphemeralAccountCreated(\n        address indexed pseudonym,\n        bytes32 indexed sessionId,\n        Role indexed role,\n        bytes32 identityCommitment,\n        uint64 createdAt\n    );\n\n    event EphemeralAccountRevoked(\n        address indexed pseudonym,\n        bytes32 indexed sessionId,\n        uint64 revokedAt\n    );\n\n    error OnlyAdmin();\n    error OnlySessionManager();\n    error PseudonymAlreadyExists();\n    error CommitmentAlreadyUsedInSession();\n    error CommitmentAlreadyUsedGlobally();\n    error InvalidCommitment();\n    error InvalidPseudonym();\n    error InvalidSession();\n    error AccountNotFound();\n    error AccountRevoked();\n    error PermanentAccountNotRegistered();\n\n    function createEphemeral(\n        address pseudonym,\n        bytes32 sessionId,\n        Role role,\n        bytes32 identityCommitment\n    ) external;\n\n    function revokeEphemeral(address pseudonym) external;\n\n    function setSessionManager(address manager, bool authorized) external;\n\n    function admin() external view returns (address);\n\n    function isSessionManager(address addr) external view returns (bool);\n\n    function isActive(address pseudonym) external view returns (bool);\n\n    function exists(address pseudonym) external view returns (bool);\n\n    function getAccount(address pseudonym) external view returns (EphemeralAccount memory);\n\n    function isCommitmentUsedInSession(\n        bytes32 sessionId,\n        bytes32 identityCommitment\n    ) external view returns (bool);\n\n    function isPseudonymUsedInSession(\n        bytes32 sessionId,\n        address pseudonym\n    ) external view returns (bool);\n\n    function isCommitmentUsedGlobally(bytes32 identityCommitment) external view returns (bool);\n}\n"
+      },
+      "project/contracts/interfaces/IPermanentAccounts.sol": {
+        "content": "// SPDX-License-Identifier: MIT\npragma solidity ^0.8.28;\n\ninterface IPermanentAccounts {\n    struct PermanentAccount {\n        bool exists;\n        uint64 registeredAt;\n        bytes32 identityCommitment;\n    }\n\n    event PermanentAccountRegistered(\n        address indexed account,\n        bytes32 indexed identityCommitment,\n        uint64 registeredAt\n    );\n\n    error OnlyAdmin();\n    error InvalidAccount();\n    error InvalidCommitment();\n    error ArrayLengthMismatch();\n    error AccountAlreadyRegistered();\n    error CommitmentAlreadyUsed();\n    error AccountNotRegistered();\n\n    function admin() external view returns (address);\n\n    function register(bytes32 identityCommitment) external;\n\n    function adminRegister(address account, bytes32 identityCommitment) external;\n\n    function adminBatchRegister(\n        address[] calldata accounts,\n        bytes32[] calldata identityCommitments\n    ) external;\n\n    function getMyAccount() external view returns (PermanentAccount memory);\n\n    function getAccount(address account) external view returns (PermanentAccount memory);\n\n    function isRegistered(address account) external view returns (bool);\n\n    function getIdentityCommitment(address account) external view returns (bytes32);\n\n    function isCommitmentUsed(bytes32 identityCommitment) external view returns (bool);\n}\n"
+      }
+    }
+  }
+}

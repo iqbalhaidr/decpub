@@ -1,0 +1,127 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Evaluasi — OJS Incentive</title>
+<style>
+:root{--bg:#f8f8f8;--surface:#fff;--border:#ddd;--text:#1a1a1a;--muted:#666;--accent:#222;--ok:#1a7f37;--err:#b3261e;--onchain:#0b5fff}
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:'Segoe UI',system-ui,sans-serif;background:var(--bg);color:var(--text);font-size:14px;line-height:1.55}
+a{color:var(--accent);text-decoration:none}
+.topbar{display:flex;align-items:center;justify-content:space-between;padding:14px 24px;border-bottom:1px solid var(--border);background:var(--surface);position:sticky;top:0;z-index:100}
+.topbar h1{font-size:1rem;font-weight:700}
+nav a{margin-left:16px;font-size:.85rem;color:var(--muted)}
+nav a.active{color:var(--accent);font-weight:700}
+.container{max-width:1000px;margin:0 auto;padding:24px}
+.section{margin-bottom:28px}
+.section h2{font-size:1.05rem;font-weight:700;margin-bottom:4px}
+.section .sub{font-size:.8rem;color:var(--muted);margin-bottom:12px}
+.card{background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:18px 20px;margin-bottom:16px}
+.card h3{font-size:.92rem;font-weight:700;margin-bottom:4px}
+.card .q{font-size:.78rem;color:var(--muted);margin-bottom:10px}
+table{width:100%;border-collapse:collapse;font-size:.8rem;margin-top:8px}
+th,td{border:1px solid var(--border);padding:6px 8px;text-align:center}
+th{background:#efefef;font-weight:700}
+td.l,th.l{text-align:left}
+.btn{background:var(--accent);color:#fff;border:none;border-radius:6px;padding:8px 16px;font-size:.82rem;cursor:pointer}
+.btn.ghost{background:var(--surface);color:var(--accent);border:1px solid var(--border)}
+.btn:disabled{opacity:.5;cursor:not-allowed}
+.status{padding:8px 12px;border-radius:6px;font-size:.8rem;margin:10px 0}
+.status.info{background:#eef;color:#225}.status.ok{background:#e8f5ec;color:var(--ok)}.status.err{background:#fde8e6;color:var(--err)}
+.note{font-size:.76rem;color:var(--muted);margin-top:8px;padding:8px;background:#fafafa;border-radius:6px}
+.good{color:var(--ok);font-weight:700}.bad{color:var(--err);font-weight:700}
+.bar{display:inline-block;height:9px;background:var(--accent);border-radius:2px;vertical-align:middle}
+</style>
+</head>
+<body>
+<div class="topbar">
+  <h1>Evaluasi — Bab IV</h1>
+  <nav>
+    <a href="/">Home</a>
+    <a href="/pipeline.html">Pipeline</a>
+    <a href="/monitor.html">Monitor</a>
+    <a href="/evaluation.html" class="active">Evaluasi</a>
+  </nav>
+</div>
+
+<div class="container">
+  <p class="sub" style="margin-bottom:16px">Baterai pengujian terkontrol (data QoS tetap, deterministik). Setiap section memetakan ke subbab Bab IV. Sistem yang diuji tetap <strong>ECWM + TOPSIS + Sigmoid</strong>; metode lain hanya pembanding.</p>
+  <div style="margin-bottom:18px">
+    <button class="btn" onclick="runAll()">Run Semua</button>
+    <button class="btn ghost" id="exportBtn" onclick="exportJSON()" disabled>Export Hasil (JSON)</button>
+    <span id="status"></span>
+  </div>
+
+  <!-- ============ DATASET ============ -->
+  <div class="section">
+    <h2>Dataset Pengujian (Benchmark)</h2>
+    <div class="sub">Data QoS tetap & deterministik yang dipakai pengujian. q1 = hari (cost), q2 relevansi &amp; q3 actionability &isin; [0,1], q4 = saldo SBT.</div>
+    <div class="card"><h3>D1 &mdash; Validasi Mesin (IV.3.1&ndash;IV.3.3)</h3><div id="dsEval"></div></div>
+    <div class="card"><h3>D2 &mdash; Skenario Free-riding (IV.4.1)</h3><div id="dsFr"></div></div>
+    <div class="card"><h3>D3 &mdash; Skenario Sybil (IV.4.2)</h3><div id="dsSyb"></div></div>
+  </div>
+
+  <!-- ============ IV.3 VALIDASI MESIN (M2) ============ -->
+  <div class="section">
+    <h2>IV.3 Validasi Mesin Pembobotan & Perangkingan (M2)</h2>
+    <div class="sub">Membuktikan pembobotan & peringkat tidak arbitrer / favoritisme.</div>
+
+    <div class="card">
+      <h3>IV.3.1 Konsistensi Bobot Subjektif (CR BWM)</h3>
+      <div class="q">Pertanyaan: apakah penilaian Editor pada tiap preset konsisten? (CR &rarr; 0 = makin reliabel)</div>
+      <div id="crTable"></div>
+    </div>
+
+    <div class="card">
+      <h3>IV.3.2 Stabilitas Peringkat Antar Metode (Spearman &rho;)</h3>
+      <div class="q">Pertanyaan: apakah peringkat stabil lintas metode? &rho; tinggi vs Hybrid (ECWM+TOPSIS) = pilihan metode tidak arbitrer.</div>
+      <div id="spearmanTable"></div>
+    </div>
+
+    <div class="card">
+      <h3>IV.3.3 Sensitivitas Parameter Fusi (&lambda;)</h3>
+      <div class="q">Pertanyaan: seberapa stabil peringkat saat otoritas Editor (&lambda;) divariasikan? Default &lambda;=0.6.</div>
+      <div id="lambdaTable"></div>
+    </div>
+  </div>
+
+  <!-- ============ IV.4 SKENARIO RESILIENSI (M1/M3/M4) ============ -->
+  <div class="section">
+    <h2>IV.4 Evaluasi Berbasis Skenario (M1, M3, M4) — acuan utama</h2>
+    <div class="sub">Profil agen ditempatkan dalam batch; dilaporkan <strong>imbalan per profil</strong>.</div>
+
+    <div class="card">
+      <h3>IV.4.1 Penekanan Free-riding & Diferensiasi (M1, M3)</h3>
+      <div class="q">Pertanyaan: apakah free-rider dapat imbalan kecil, dan apakah sigmoid lebih tajam dari linear?</div>
+      <div id="frTable"></div>
+      <div id="frNote"></div>
+    </div>
+
+    <div class="card">
+      <h3>IV.4.2 Ketahanan terhadap Sybil Attack (M4)</h3>
+      <div class="q">Pertanyaan: apakah memecah kontribusi ke banyak identitas baru (q4=0) menguntungkan? ROI &lt; 1 = serangan gagal.</div>
+      <div id="sybilTable"></div>
+      <div id="sybilNote"></div>
+    </div>
+
+    <div class="card">
+      <h3>IV.4.3 Peluruhan Reputasi (M4)</h3>
+      <div class="q">Pertanyaan: apakah reputasi agen inaktif meluruh lintas siklus?</div>
+      <div id="decayTable"></div>
+      <div id="decayNote"></div>
+    </div>
+  </div>
+
+  <!-- ============ IV.5 GAS ============ -->
+  <div class="section">
+    <h2>IV.5 Biaya Gas & Kelayakan On-Chain (NFR-03, NFR-07)</h2>
+    <div class="card">
+      <div class="note">Analisis gas vs jumlah penelaah (n) memerlukan kontrak ter-deploy. Deploy dulu di halaman <a href="/monitor.html">Monitor</a>, lalu jalankan distribusi on-chain di <a href="/pipeline.html">Pipeline</a> untuk membaca <code>gasUsed</code>. (Endpoint loop gas-vs-n menyusul.)</div>
+    </div>
+  </div>
+</div>
+
+<script src="js/evaluation.js" defer></script>
+</body>
+</html>

@@ -1,0 +1,24 @@
+<!doctype html>
+<html lang="id"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Public - Sepolia </title>
+<link rel="stylesheet" href="/style.css">
+</head><body>
+<nav class="top"><a href="/">Beranda</a><a href="/sepolia.html">Sepolia</a><a href="/author.html">Author</a><a href="/reviewer.html">Reviewer</a><a href="/editor.html">Editor</a><a href="/public.html" class="active">Public</a></nav>
+<div class="wrap">
+  <h1>Public - Sepolia</h1>
+  <!-- <p class="sub">Data dibaca langsung dari blockchain (event + state) dan store submisi. Semua dapat diverifikasi di Etherscan.</p> -->
+  <button id="refreshBtn" class="sec">Refresh</button>
+
+  <div class="panel">
+    <h2>Paper &amp; Hasil Distribusi</h2>
+    <div id="batches" style="margin-top:8px">Memuat…</div>
+  </div>
+
+  <div class="panel">
+    <h2>Reputasi Reviewer (SBT, non-transferable)</h2>
+    <div id="reps">Memuat…</div>
+  </div>
+</div>
+<script src="/js/public-view.js"></script>
+</body></html>

@@ -1,0 +1,30 @@
+:root{--bg:#f6f7f9;--surface:#fff;--border:#e2e8f0;--text:#1a202c;--muted:#64748b;--accent:#2b6cb0}
+*{box-sizing:border-box}
+body{font-family:'Segoe UI',system-ui,sans-serif;background:var(--bg);color:var(--text);margin:0;font-size:14px;line-height:1.6}
+.wrap{max-width:920px;margin:0 auto;padding:18px 16px 60px}
+nav.top{background:var(--surface);border-bottom:1px solid var(--border);padding:10px 16px;font-size:.9rem}
+nav.top a{color:var(--accent);text-decoration:none;margin-right:14px}
+nav.top a.active{font-weight:700}
+h1{font-size:1.3rem;margin:14px 0 4px}h2{font-size:1.02rem;margin:0 0 8px}
+.sub{color:var(--muted);font-size:.86rem;margin-bottom:12px}
+.panel{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:14px 16px;margin:12px 0}
+label{display:block;font-size:.85rem;margin:8px 0 4px;font-weight:600}
+input,textarea,select{width:100%;padding:8px;border:1px solid #cbd5e1;border-radius:6px;font:inherit}
+textarea{min-height:90px;resize:vertical}
+button{background:var(--accent);color:#fff;border:0;border-radius:8px;padding:9px 15px;font-size:.9rem;cursor:pointer;margin-top:6px}
+button:disabled{background:#94a3b8;cursor:not-allowed}
+button.sec{background:#475569}
+table{border-collapse:collapse;width:100%;margin-top:8px}th,td{border:1px solid var(--border);padding:6px 8px;text-align:left;font-size:.85rem}
+th{background:#f1f5f9}
+a{color:var(--accent);word-break:break-all}
+#log,.log{height:180px;overflow:auto;background:#0f172a;color:#e2e8f0;border-radius:8px;padding:10px;font:12px/1.55 ui-monospace,Consolas,monospace;margin-top:8px}
+#log .ok,.log .ok{color:#4ade80}#log .err,.log .err{color:#f87171}#log .warn,.log .warn{color:#fbbf24}#log .info,.log .info{color:#93c5fd}
+.note{background:#eff6ff;border:1px solid #bfdbfe;border-radius:8px;padding:10px 12px;font-size:.85rem;margin:6px 0}
+.badge{font-size:.7rem;padding:2px 8px;border-radius:999px;margin-left:6px}
+.badge.done{background:#dcfce7;color:#166534}.badge.pending{background:#fef3c7;color:#92400e}
+.muted{color:var(--muted);font-size:.85rem}
+.cardlink{display:block;background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:18px;margin:0;text-decoration:none;color:var(--text)}
+.cardlink:hover{border-color:var(--accent);box-shadow:0 2px 10px rgba(0,0,0,.06)}
+.cardlink h2{color:var(--accent)}
+.grid{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+@media(max-width:600px){.grid{grid-template-columns:1fr}}

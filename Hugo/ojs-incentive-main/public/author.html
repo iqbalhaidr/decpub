@@ -1,0 +1,39 @@
+<!doctype html>
+<html lang="id"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Author — Submit Paper (Sepolia)</title>
+<link rel="stylesheet" href="/style.css">
+</head><body>
+<nav class="top"><a href="/">Beranda</a><a href="/sepolia.html">Sepolia</a><a href="/author.html" class="active">Author</a><a href="/reviewer.html">Reviewer</a><a href="/editor.html">Editor</a><a href="/public.html">Public</a></nav>
+<div class="wrap">
+  <h1>Author</h1>
+  <p class="sub" id="cfg">Memuat…</p>
+
+  <div class="panel">
+    <h2>1. Connect MetaMask</h2>
+    <button id="connectBtn">Connect MetaMask</button>
+    <div id="acct" style="margin-top:8px" class="muted"></div>
+  </div>
+
+  <div class="panel">
+    <h2>2. Unggah Paper (PDF)</h2>
+    <input type="file" id="pdf" accept="application/pdf">
+    <div id="paperInfo" class="muted" style="margin-top:8px"></div>
+  </div>
+
+  <div class="panel">
+    <h2>3. Detail Submisi</h2>
+    <label>Nama Jurnal</label>
+    <input id="journal" placeholder="mis. Jurnal Informatika X" value="Jurnal Demo">
+    <label>Alamat Reviewer (1–10, pisahkan baris/koma/spasi)</label>
+    <textarea id="reviewers" placeholder="0xabc...\n0xdef..."></textarea>
+    <label>Escrow (ETH)</label>
+    <input id="escrow" value="0.01" style="max-width:140px">
+    <br><button id="submitBtn">Submit &amp; Kunci Escrow (createBatch)</button>
+  </div>
+
+  <h2>Log</h2>
+  <div id="log"></div>
+</div>
+<script src="/js/author.js"></script>
+</body></html>

@@ -1,0 +1,9 @@
+{
+  "network": "sepolia",
+  "reputationSBT": "0x089557292Af0A4bc2947a9224B7F598e06740ad8",
+  "incentiveEngine": "0xFC90BFdf9bD04E4Ac06FfD8003D4A86016C33916",
+  "operator": "0x4754769b21acb959142A13EB2F5d1dcbf6fE7DDc",
+  "deployedAtBlock": 11200277,
+  "sigmoid": { "k": "10", "x0": "0.5" },
+  "sbtDecayPerDay": "0.02"
+}

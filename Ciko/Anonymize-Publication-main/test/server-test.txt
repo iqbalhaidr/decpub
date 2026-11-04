@@ -1,0 +1,80 @@
+[nohaitch@athena server]$ npm run test:all:report
+
+> anonymize-publication@1.0.0 test:all:report
+> npm run test:unit && npm run test:e2e && npm run test:evaluation:report
+
+
+> anonymize-publication@1.0.0 test:unit
+> jest --testRegex=".*\.spec\.ts$" --testPathIgnorePatterns="/evaluation/|/e2e/" --runInBand
+
+ PASS  src/flows/flows.service.spec.ts (13.376 s)
+ PASS  src/query/query.service.spec.ts
+ PASS  src/manuscripts/manuscripts.controller.spec.ts
+ PASS  src/manuscripts/manuscripts-anonymization.service.spec.ts
+ PASS  src/manuscripts/manuscripts.service.spec.ts
+ PASS  src/manuscripts/manuscripts-automatic-check.service.spec.ts
+ PASS  src/app.service.spec.ts
+ PASS  src/query/query.mappers.spec.ts
+ PASS  src/app.controller.spec.ts
+
+Test Suites: 9 passed, 9 total
+Tests:       60 passed, 60 total
+Snapshots:   0 total
+Time:        17.116 s
+Ran all test suites.
+
+> anonymize-publication@1.0.0 test:e2e
+> jest --config ./test/jest-e2e.json --runInBand
+
+ PASS  test/multi-role-integration.e2e-spec.ts (15.748 s)
+ PASS  test/app.e2e-spec.ts
+ PASS  test/manuscripts.e2e-spec.ts
+
+Test Suites: 3 passed, 3 total
+Tests:       19 passed, 19 total
+Snapshots:   0 total
+Time:        17.438 s
+Ran all test suites.
+
+> anonymize-publication@1.0.0 test:evaluation:report
+> rm -rf test-results/evaluation/* && npm run test:evaluation
+
+
+> anonymize-publication@1.0.0 test:evaluation
+> jest src/evaluation/ --runInBand
+
+ PASS  src/evaluation/anonymity-technique-ablation.evaluation.spec.ts (6.043 s)
+ PASS  src/evaluation/nf.evaluation.spec.ts
+ PASS  src/evaluation/quantitative-proxy.evaluation.spec.ts
+  ● Console
+
+    console.log
+      Rich Quantitative Metrics Sample: {
+        anonymitySetSize: 3,
+        probabilityDistribution: undefined,
+        sensitiveFieldCount: 0,
+        commitSensitiveCount: 0,
+        revealSensitiveCount: 0,
+        exposureDelta: 0,
+        forbiddenIdentityFieldCount: 0,
+        pseudonymousFieldCount: 0,
+        reviewerSelectionDensity: 0.6,
+        additionalReviewerRatio: 0.4,
+        supportsFormalEntropy: undefined,
+        reasonNoEntropy: undefined,
+        entropy: 1.584962500721156,
+        maxEntropy: 1.584962500721156,
+        effectiveAnonymitySetSize: 3,
+        degreeOfAnonymity: 1
+      }
+
+      at Object.<anonymous> (evaluation/quantitative-proxy.evaluation.spec.ts:226:13)
+
+ PASS  src/evaluation/structural-anonymity.evaluation.spec.ts
+ PASS  src/evaluation/scenario-matrix.evaluation.spec.ts
+
+Test Suites: 5 passed, 5 total
+Tests:       85 passed, 85 total
+Snapshots:   0 total
+Time:        9.368 s, estimated 21 s
+Ran all test suites matching /src\/evaluation\//i.

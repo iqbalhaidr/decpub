@@ -1,0 +1,58 @@
+<!doctype html>
+<html lang="id"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Editor — Kebijakan Bobot & Distribusi (Sepolia)</title>
+<link rel="stylesheet" href="/style.css">
+</head><body>
+<nav class="top"><a href="/">Beranda</a><a href="/sepolia.html">Sepolia</a><a href="/author.html">Author</a><a href="/reviewer.html">Reviewer</a><a href="/editor.html" class="active">Editor</a><a href="/public.html">Public</a></nav>
+<div class="wrap">
+  <h1>Editor</h1>
+  <p class="sub" id="cfg">Memuat…</p>
+
+  <div class="panel">
+    <h2>Kebijakan Bobot (BWM &harr; ECWM)</h2>
+    <label>Preset strategi editorial (bobot subjektif BWM)</label>
+    <select id="preset"></select>
+    <p class="muted" id="presetInfo"></p>
+
+    <label style="margin-top:6px;display:inline-block"><input type="checkbox" id="manualToggle"> Sesuaikan perbandingan manual (lanjutan)</label>
+    <div id="manualBox" style="display:none;margin:6px 0;padding:10px;border:1px solid #ddd;border-radius:6px">
+      <p class="muted">Kriteria: q1 timeliness &middot; q2 relevansi &middot; q3 actionability &middot; q4 reputasi. Skala perbandingan 1&ndash;9 (BWM).</p>
+      <label>Best (kriteria terpenting)</label>
+      <select id="mBest"><option value="0">q1</option><option value="1">q2</option><option value="2" selected>q3</option><option value="3">q4</option></select>
+      <label>Worst (kriteria terlemah)</label>
+      <select id="mWorst"><option value="0">q1</option><option value="1">q2</option><option value="2">q3</option><option value="3" selected>q4</option></select>
+      <label>Best-to-Others [q1,q2,q3,q4]</label>
+      <input type="text" id="mB2O" value="2,2,1,4">
+      <label>Others-to-Worst [q1,q2,q3,q4]</label>
+      <input type="text" id="mO2W" value="2,2,4,1">
+    </div>
+
+    <label style="margin-top:6px;display:inline-block">Otoritas Editor &lambda; = <span id="lamVal">0.60</span> <span class="muted">(1 = subjektif Editor, 0 = objektif data)</span></label>
+    <input type="range" id="lambda" min="0.3" max="0.7" step="0.05" value="0.6">
+    <p class="muted">Bobot final = &lambda;&middot;BWM(subjektif) + (1&minus;&lambda;)&middot;ECWM(objektif).</p>
+  </div>
+
+  <div class="panel">
+    <h2>Parameter Sistem (read-only)</h2>
+    <p class="muted">Konfigurasi optimal hasil analisis &amp; evaluasi skripsi &mdash; di-<i>bake</i> saat deploy kontrak (bukan knob per-batch).</p>
+    <div id="sysparams" class="muted">Memuat…</div>
+  </div>
+
+  <div class="panel">
+    <h2>Daftar Submisi</h2>
+    <button id="refreshBtn" class="sec">Muat Ulang</button>
+    <div id="list" style="margin-top:10px">Memuat…</div>
+  </div>
+
+  <div class="panel">
+    <h2>Pratinjau QoS &amp; Bobot (insight untuk menyetel &lambda;)</h2>
+    <!-- <p class="muted">Klik <b>Pratinjau</b> pada sebuah batch untuk melihat matriks QoS (q1&ndash;q4 per reviewer), bobot final pada &lambda; saat ini, serta skor TOPSIS pratinjau (dihitung off-chain, tidak mengubah rantai). Geser &lambda; lalu pratinjau lagi untuk membandingkan sebelum eksekusi.</p> -->
+    <div id="preview" class="muted">Belum ada pratinjau.</div>
+  </div>
+
+  <h2>Log</h2>
+  <div id="log"></div>
+</div>
+<script src="/js/editor.js"></script>
+</body></html>

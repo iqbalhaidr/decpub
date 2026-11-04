@@ -1,0 +1,44 @@
+{
+  "name": "ojs-incentive",
+  "version": "0.1.0",
+  "description": "Hybrid Adaptive Incentive Mechanism for Peer Review (OJS + Blockchain)",
+  "scripts": {
+    "compile": "hardhat compile",
+    "test": "hardhat test",
+    "test:middleware": "hardhat test test/middleware/normalization.test.ts test/middleware/bwm.test.ts test/middleware/ecwm.test.ts test/middleware/fusion.test.ts test/middleware/topsis.test.ts test/middleware/qos.test.ts test/middleware/pipeline.test.ts",
+    "test:contracts": "hardhat test test/contracts/IncentiveEngine.test.ts",
+    "test:all": "hardhat test",
+    "eval": "ts-node eval/run-all.ts",
+    "eval:verify": "ts-node eval/verify-existing.ts",
+    "eval:gas": "hardhat test test/contracts/gas.test.ts",
+    "eval:all": "npm run eval && npm run eval:gas",
+    "deploy:sepolia": "hardhat run eval/testnet-confirm.ts --network sepolia",
+    "deploy:sepolia:persist": "hardhat run eval/deploy-sepolia.ts --network sepolia",
+    "server": "ts-node server/index.ts",
+    "server:sepolia": "ts-node server/index.ts --sepolia",
+    "build:web": "esbuild frontend/evaluation.ts frontend/pipeline.ts frontend/monitor.ts frontend/demo.ts frontend/author.ts frontend/reviewer.ts frontend/editor.ts frontend/public-view.ts --bundle --format=iife --outdir=public/js",
+    "clean": "hardhat clean"
+  },
+  "devDependencies": {
+    "@nomicfoundation/hardhat-toolbox": "^5.0.0",
+    "@types/chai": "^4.3.0",
+    "@types/cors": "^2.8.19",
+    "@types/express": "^5.0.6",
+    "@types/mocha": "^10.0.0",
+    "@types/node": "^20.0.0",
+    "dotenv": "^16.6.1",
+    "esbuild": "^0.24.2",
+    "hardhat": "^2.22.0",
+    "ts-node": "^10.9.0",
+    "typescript": "^5.4.0"
+  },
+  "dependencies": {
+    "@openzeppelin/contracts": "^5.1.0",
+    "cors": "^2.8.6",
+    "express": "^5.2.1"
+  },
+  "optionalDependencies": {
+    "@huggingface/transformers": "^3.0.0",
+    "pdf-parse": "^1.1.1"
+  }
+}

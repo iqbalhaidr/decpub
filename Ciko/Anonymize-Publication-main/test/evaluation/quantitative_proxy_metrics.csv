@@ -1,0 +1,5 @@
+timestamp,suiteName,testName,anonymitySetSize,probabilityDistribution,sensitiveFieldCount,commitSensitiveCount,revealSensitiveCount,exposureDelta,forbiddenIdentityFieldCount,pseudonymousFieldCount,reviewerSelectionDensity,additionalReviewerRatio,supportsFormalEntropy,reasonNoEntropy,entropy,maxEntropy,effectiveAnonymitySetSize,degreeOfAnonymity
+"2026-06-30T19:24:32.349Z","Quantitative Proxy","Evaluates Assignment Proof Summary",3,,0,0,0,0,0,2,0,0,,,1.584962500721156,1.584962500721156,3,1
+"2026-06-30T19:24:32.351Z","Quantitative Proxy","Evaluates Reviewer Submission (Commit Only)",1,,0,0,0,0,0,1,0,0,false,"Individual reviewer submission tracks exposure delta, not candidate entropy.",0,0,1,0
+"2026-06-30T19:24:32.351Z","Quantitative Proxy","Evaluates Reviewer Submission (Reveal Phase)",1,,5,0,5,5,0,2,0,0,false,"Individual reviewer submission tracks exposure delta, not candidate entropy.",0,0,1,0
+"2026-06-30T19:24:32.369Z","Quantitative Proxy","Evaluates Reviewer Selection Batch as Anonymity Set Proxy with Rich Metrics",3,,0,0,0,0,0,0,0.6,0.4,,,1.584962500721156,1.584962500721156,3,1

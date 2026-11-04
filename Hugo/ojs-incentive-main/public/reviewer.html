@@ -1,0 +1,43 @@
+<!doctype html>
+<html lang="id"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Reviewer — Review Paper (Sepolia)</title>
+<link rel="stylesheet" href="/style.css">
+</head><body>
+<nav class="top"><a href="/">Beranda</a><a href="/sepolia.html">Sepolia</a><a href="/author.html">Author</a><a href="/reviewer.html" class="active">Reviewer</a><a href="/editor.html">Editor</a><a href="/public.html">Public</a></nav>
+<div class="wrap">
+  <h1>Reviewer</h1>
+  <!-- <p class="sub">Connect MetaMask untuk melihat paper di mana alamatmu terdaftar sebagai reviewer.</p> -->
+
+  <div class="panel">
+    <button id="connectBtn">Connect MetaMask</button>
+    <span id="acct" class="muted" style="margin-left:8px"></span>
+    <div style="margin-top:10px">
+      <!-- <label>atau pilih reviewer demo (tanpa MetaMask — ulasan bersifat off-chain):</label> -->
+      <select id="actAs"><option value="">— pilih reviewer demo —</option></select>
+    </div>
+  </div>
+
+  <div class="panel">
+    <h2>Paper untuk direview</h2>
+    <div id="papers" class="muted">Belum terhubung.</div>
+  </div>
+
+  <div class="panel" id="reviewBox" style="display:none">
+    <h2>Tulis Ulasan — <span id="rvTitle"></span></h2>
+    <div class="note" id="rvAbstract"></div>
+    <label>Ulasan kamu</label>
+    <textarea id="reviewText" placeholder="Tulis ulasan substantif: soroti kelebihan/kekurangan, sarankan perbaikan konkret…"></textarea>
+    <label><span class="muted">(simulasi timeliness q1; kosongkan = pakai waktu nyata)</span></label>
+    <input type="number" id="daysElapsed" min="0" step="1" placeholder="mis. 2">
+    <p class="muted" id="deadlineNote"></p>
+    <!-- <p class="muted">Skor kualitas (AI) dihitung otomatis namun <b>tidak ditampilkan</b> untuk mencegah manipulasi. Hasil imbalan muncul setelah editor menjalankan distribusi.</p> -->
+    <button id="randomBtn" class="sec">Isi contoh acak</button>
+    <button id="submitBtn">Kirim Ulasan</button>
+  </div>
+
+  <h2>Log</h2>
+  <div id="log"></div>
+</div>
+<script src="/js/reviewer.js"></script>
+</body></html>

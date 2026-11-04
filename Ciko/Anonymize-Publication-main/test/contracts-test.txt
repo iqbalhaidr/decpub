@@ -1,0 +1,319 @@
+[nohaitch@athena contracts]$ npm run test:all
+
+> anonymize-publication-contracts@1.0.0 test:all
+> hardhat test test/*.test.ts test-deployed/*.test.ts
+
+No contracts to compile
+Running node:test tests
+
+  AssignmentProofs
+    ✔ deployer is admin (970ms)
+    setSessionManager
+      ✔ admin can authorize
+      ✔ non-admin cannot authorize
+    recordEditorAssignmentProof
+      ✔ records proof for valid editor and session (95ms)
+      ✔ rejects duplicate editor proof (80ms)
+      ✔ rejects mismatched editor pseudonym
+      ✔ rejects when session not in valid status
+    recordReviewerAssignmentProof
+      ✔ records a reviewer proof (80ms)
+      ✔ rejects duplicate reviewer proof (77ms)
+      ✔ rejects zero commitment (83ms)
+      ✔ rejects after session moves to UnderReview
+    batchRecordReviewerAssignmentProofs
+      ✔ records multiple proofs in one call
+      ✔ rejects length mismatch
+    view error handling
+      ✔ getEditorAssignmentProof reverts if not recorded
+      ✔ getReviewerAssignmentProof reverts if not recorded
+
+  AutomaticChecks
+    ✔ deployer is admin
+    setSessionManager
+      ✔ admin can authorize
+      ✔ non-admin cannot authorize
+    recordAutomaticCheck
+      ✔ Pass result → session becomes UnderAnonymization (78ms)
+      ✔ Incomplete result → session becomes Incomplete
+      ✔ Reject result → session becomes Rejected
+      ✔ batch increments on re-check after Incomplete
+      ✔ rejects None result
+      ✔ rejects zero reportHash
+      ✔ rejects zero flagsHash
+      ✔ rejects after session has moved past checking phase (Pass already done) (79ms)
+      ✔ non-session-manager cannot record
+    read helpers
+      ✔ hasRecord false before any record
+      ✔ getRecord reverts for missing batch
+      ✔ getLatestRecord reverts when no records
+      ✔ getLatestBatch returns 0 before any record
+      ✔ getRecord returns correct data after recording
+
+  EditorialScreenings
+    ✔ deployer is admin
+    setSessionManager
+      ✔ admin can authorize
+      ✔ non-admin cannot authorize
+    recordEditorialScreening
+      ✔ ProceedToReviewerSelection → session becomes AssigningReviewers (97ms)
+      ✔ ReviseBeforeReview → session becomes MajorRevisionRequired (76ms)
+      ✔ DeskReject → session becomes Rejected (77ms)
+      ✔ record has correct fields (102ms)
+      ✔ rejects mismatched editor (wrong pseudonym) (92ms)
+      ✔ rejects None decision (86ms)
+      ✔ rejects when session not in UnderEditorialScreening (80ms)
+      ✔ non-session-manager cannot record
+    read helpers
+      ✔ hasRecord false before recording
+      ✔ getRecord reverts for non-existent revision
+      ✔ getLatestRecord reverts when no record
+
+  EphemeralAccounts
+    ✔ deployer is admin
+    setSessionManager
+      ✔ admin can authorize and revoke
+      ✔ non-admin cannot authorize
+    createEphemeral
+      ✔ creates for registered commitment
+      ✔ rejects duplicate pseudonym address
+      ✔ rejects commitment already used globally
+      ✔ rejects unregistered commitment
+      ✔ rejects zero pseudonym address
+      ✔ rejects zero sessionId
+      ✔ rejects zero commitment
+      ✔ non-session-manager cannot create
+    revokeEphemeral
+      ✔ admin can revoke
+      ✔ reverts on non-existent pseudonym
+      ✔ non-admin cannot revoke
+    query helpers
+      ✔ isCommitmentUsedInSession tracks per-session use
+      ✔ isPseudonymUsedInSession tracks per-session use
+      ✔ isCommitmentUsedGlobally true after any creation
+      ✔ getAccount reverts for non-existent pseudonym
+
+  Full End-to-End Flow
+    ✔ Happy path: Submit → AutoCheck Pass → Editorial Proceed → Assign → Review 3xAccept → Accept → Publish (223ms)
+    ✔ AutoCheck Incomplete → resubmit → Pass continues flow (108ms)
+    ✔ Desk reject → session ends at Rejected (113ms)
+    ✔ MinorRevision → resubmit → Accept path (188ms)
+
+  PermanentAccounts
+    ✔ deployer is admin
+    register (self)
+      ✔ registers with unique commitment
+      ✔ rejects duplicate registration (same account)
+      ✔ rejects zero commitment
+      ✔ rejects duplicate commitment across different accounts
+    adminRegister
+      ✔ admin registers any account
+      ✔ non-admin cannot adminRegister
+      ✔ rejects zero address
+      ✔ rejects zero commitment
+    adminBatchRegister
+      ✔ registers multiple accounts
+      ✔ rejects mismatched lengths
+      ✔ non-admin cannot batch register
+    view helpers
+      ✔ isRegistered false before registration
+      ✔ getAccount reverts for unregistered
+      ✔ getIdentityCommitment returns correct value
+      ✔ getIdentityCommitment reverts for unregistered
+      ✔ isCommitmentUsed tracks commitments
+      ✔ getMyAccount returns sender account
+
+  PublicationSessions
+    ✔ deployer is admin
+    setSessionManager
+      ✔ admin can authorize
+      ✔ non-admin cannot authorize
+    createSession
+      ✔ creates with correct initial state
+      ✔ rejects duplicate sessionId
+      ✔ rejects zero sessionId
+      ✔ rejects zero originalManuscriptHash
+      ✔ rejects zero pseudonym
+      ✔ non-session-manager cannot create
+    updateStatus — valid transitions
+      ✔ Submitted → UnderAutomaticChecking
+      ✔ UnderAutomaticChecking → Incomplete
+      ✔ UnderAutomaticChecking → UnderAnonymization
+      ✔ UnderAnonymization → UnderEditorialScreening
+      ✔ AssigningReviewers → UnderReview
+      ✔ UnderReview → Accepted → Published
+    updateStatus — invalid transitions
+      ✔ rejects same-status update
+      ✔ rejects status None (0)
+      ✔ rejects invalid jump (Submitted → Accepted)
+    assignEditor
+      ✔ assigns editor in UnderEditorialScreening status
+      ✔ rejects duplicate assignment
+      ✔ rejects wrong-role pseudonym as editor
+    recordRevision
+      ✔ records a revision from MinorRevisionRequired (76ms)
+      ✔ records a revision from MajorRevisionRequired
+      ✔ rejects revision when not in revision status
+    recordReviewerCriteria
+      ✔ records criteria in UnderEditorialScreening
+      ✔ records criteria in AssigningReviewers
+      ✔ rejects criteria when session is not in valid status
+      ✔ rejects zero criteriaHash
+      ✔ rejects zero reviewerCount (103ms)
+    exists / getSession
+      ✔ exists returns false for unknown session
+      ✔ getSession reverts for unknown session
+
+  ReviewDecisions
+    ✔ deployer is admin
+    computeOutcome
+      ✔ 3 Accept → Accept outcome (141ms)
+      ✔ 3 Reject → Reject outcome (119ms)
+      ✔ 3 MajorRevision → MajorRevision outcome (121ms)
+      ✔ 1A + 1R + 1Minor → gray zone (133ms)
+    decideBatch
+      ✔ Accept outcome → session Accepted (137ms)
+      ✔ Reject outcome → session Rejected (138ms)
+      ✔ MajorRevision outcome → session MajorRevisionRequired (161ms)
+      ✔ Inconclusive → session back to AssigningReviewers (140ms)
+      ✔ batch=0 → InvalidBatch (127ms)
+      ✔ empty reviewers → InvalidReviewerCount (123ms)
+      ✔ duplicate reviewer in input → DuplicateReviewer (137ms)
+      ✔ non-UnderReview session → InvalidSessionStatus
+      ✔ only session manager can decide (158ms)
+    read helpers
+      ✔ hasDecision false sebelum decide
+      ✔ getDecision reverts untuk batch unknown
+      ✔ setelah decideBatch, getDecision berisi outcome (149ms)
+
+  ReviewerSelections
+    ✔ deployer is admin
+    setSessionManager
+      ✔ admin can authorize
+      ✔ non-admin cannot authorize
+    recordSelectionBatch
+      ✔ records first batch with 3 commitments
+      ✔ marks each reviewer as selected
+      ✔ second batch after gray-zone reassignment
+      ✔ rejects zero criteriaHash
+      ✔ rejects reviewerCount / commitments length mismatch
+      ✔ rejects zero reviewerCount
+      ✔ rejects duplicate commitment in same batch
+      ✔ rejects when session is not AssigningReviewers
+      ✔ non-session-manager cannot record
+    read helpers
+      ✔ getLatestBatch returns 0 before any batch
+      ✔ hasBatch returns false before recording
+      ✔ getBatch reverts for non-existent batch
+      ✔ getSelectedReviewer reverts for non-existent selection
+      ✔ getSelectedReviewerCount returns 0 before recording
+
+  ReviewSubmissions
+    ✔ deployer is admin
+    setSessionManager
+      ✔ admin can authorize
+      ✔ non-admin cannot authorize
+    setReviewPhase
+      ✔ session manager sets phase to Commit (122ms)
+      ✔ non-session-manager cannot set phase (80ms)
+    computeCommitHash
+      ✔ matches viem abi.encode computation (80ms)
+    commitReview
+      ✔ reviewer can commit (86ms)
+      ✔ rejects duplicate commit from same reviewer (98ms)
+      ✔ rejects commit in Reveal phase (82ms)
+      ✔ rejects zero commitHash (76ms)
+    revealReview
+      ✔ reviewer can reveal after commit, in Reveal phase (91ms)
+      ✔ rejects reveal with wrong nonce (invalid commit verification) (86ms)
+      ✔ rejects reveal when commit does not exist (83ms)
+      ✔ rejects reveal in Commit phase (92ms)
+      ✔ rejects duplicate reveal (90ms)
+    read helpers
+      ✔ hasCommit returns false before commit (77ms)
+      ✔ getCommitRecord reverts for non-existent commit (77ms)
+      ✔ getRevealRecord reverts when no commit exists (80ms)
+
+  AssignmentProofs [deployed]
+    ✔ contract is deployed at expected address (9913ms)
+    ✔ admin is set and matches deployer (9520ms)
+    ✔ isSessionManager returns boolean (8599ms)
+    ✔ hasEditorAssignmentProof returns false for random session (8062ms)
+    ✔ hasReviewerAssignmentProof returns false for random session/commitment (7908ms)
+    ✔ getEditorAssignmentProof reverts for non-existent proof (10751ms)
+    ✔ getReviewerAssignmentProof reverts for non-existent proof (10342ms)
+    ✔ getReviewerAssignmentProofCount returns 0 for random session (8700ms)
+
+  AutomaticChecks [deployed]
+    ✔ contract is deployed at expected address (8600ms)
+    ✔ admin is set and matches deployer (8191ms)
+    ✔ isSessionManager returns boolean (7986ms)
+    ✔ getLatestBatch returns 0 for random session (9630ms)
+    ✔ hasRecord returns false for random session/batch (8594ms)
+    ✔ getRecord reverts for non-existent record (10707ms)
+    ✔ getLatestRecord reverts when no records exist (10900ms)
+
+  EditorialScreenings [deployed]
+    ✔ contract is deployed at expected address (8394ms)
+    ✔ admin is set and matches deployer (8703ms)
+    ✔ isSessionManager returns boolean (8806ms)
+    ✔ hasRecord returns false for random session/revision (8982ms)
+    ✔ getRecord reverts for non-existent record (11242ms)
+
+  EphemeralAccounts [deployed]
+    ✔ contract is deployed at expected address (8548ms)
+    ✔ admin is set and matches deployer (9215ms)
+    ✔ isSessionManager returns boolean (9215ms)
+    ✔ exists returns false for random pseudonym (9011ms)
+    ✔ isActive returns false for non-existent pseudonym (8453ms)
+    ✔ getAccount reverts for non-existent pseudonym (10183ms)
+    ✔ isCommitmentUsedGlobally returns false for random commitment (7705ms)
+    ✔ isCommitmentUsedInSession returns false for random session/commitment (8166ms)
+    ✔ isPseudonymUsedInSession returns false for random session/pseudonym (8964ms)
+
+  PermanentAccounts [deployed]
+    ✔ contract is deployed at expected address (8340ms)
+    ✔ admin is set (non-zero address) (8764ms)
+    ✔ isRegistered returns boolean for arbitrary address (9039ms)
+    ✔ isCommitmentUsed returns boolean for arbitrary commitment (9639ms)
+    ✔ getAccount reverts for unregistered address (10957ms)
+    ✔ register with unique commitment succeeds (24371ms)
+
+  PublicationSessions [deployed]
+    ✔ contract is deployed at expected address (6553ms)
+    ✔ admin is set and matches deployer (8703ms)
+    ✔ isSessionManager returns boolean (8806ms)
+    ✔ exists returns false for random session (8704ms)
+    ✔ getSession reverts for non-existent session (10757ms)
+
+  ReviewDecisions [deployed]
+    ✔ contract is deployed at expected address (8699ms)
+    ✔ admin is set and matches deployer (8758ms)
+    ✔ isSessionManager returns boolean (9674ms)
+    ✔ hasDecision returns false for random session/batch (8250ms)
+    ✔ getDecision reverts for non-existent batch (10796ms)
+    ✔ computeOutcome returns correct result for 3 Accept (8499ms)
+    ✔ computeOutcome returns correct result for 3 Reject (9217ms)
+    ✔ computeOutcome detects gray zone (9112ms)
+
+  ReviewerSelections [deployed]
+    ✔ contract is deployed at expected address (8500ms)
+    ✔ admin is set and matches deployer (8703ms)
+    ✔ isSessionManager returns boolean (8806ms)
+    ✔ getLatestBatch returns 0 for random session (8396ms)
+    ✔ hasBatch returns false for random session/batch (8192ms)
+    ✔ hasSelection returns false for random session/batch/commitment (9216ms)
+    ✔ getBatch reverts for non-existent batch (11018ms)
+
+  ReviewSubmissions [deployed]
+    ✔ contract is deployed at expected address (8331ms)
+    ✔ admin is set and matches deployer (7884ms)
+    ✔ isSessionManager returns boolean (8397ms)
+    ✔ getReviewPhase returns 0 (None) for random session (9010ms)
+    ✔ hasCommit returns false for random session/reviewer (8190ms)
+    ✔ hasReveal returns false for random session/reviewer (8759ms)
+    ✔ getCommitRecord reverts for non-existent commit (11106ms)
+    ✔ computeCommitHash returns a bytes32 value (8190ms)
+
+
+232 passing (232 nodejs)

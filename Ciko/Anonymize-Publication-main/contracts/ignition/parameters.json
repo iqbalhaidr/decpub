@@ -1,0 +1,54 @@
+{
+    "_comment": "Seeded permanent accounts for the Sepolia test deployment.",
+    "_note": "Use test wallets only. Do not place production wallets or funded private keys here.",
+    "PermanentAccountsModule": {
+        "initialAccounts": [
+            {
+                "address": "0x835912A299F29b2d382E37Aa872BB019FA107496",
+                "privateKey": "0x8e2bf7767420efbd3c64a3cd006e77982e2a77210b384c4711128bcbe63d0385"
+            },
+            {
+                "address": "0x60Bc6D7D8feD07FAc6D7944e43d4D518A98A0a0F",
+                "privateKey": "0x199ab04a975aa97af93dcc923ff23f47ddca8f386ac2b0fa46d1cda6b94a386e"
+            },
+            {
+                "address": "0x4F805AaB03eAEA41AB86D9374F8a69EE8F59778E",
+                "privateKey": "0xedf29ce16855a2ceb02c4660dd470af7591d3e3fe5898e2774d3e72f1e675c18"
+            }
+        ]
+    },
+
+    "THIS IS A COMMENT": {
+        "Comment": "THE REST OF THE ADDRESS BELOW ARE USED FOR MANUAL DEPLOYMENT. FOR FULL DEPLOYMENT USING FULLSYSTEM.TS, IT IS NOT NEEDED!"
+    },
+
+    "EphemeralAccountsModule": {
+        "permanentAccountsAddress": "0x0858B2C2B24dC901E1eaEfA01Ffea92A175ba201"
+    },
+    "PublicationSessionsModule": {
+        "ephemeralAccountsAddress": "0xb49085e77Cc910D919478EA56140DA169C14CFaF"
+    },
+    "ReviewerSelectionsModule": {
+        "publicationSessionsAddress": "0x1881df4f647000c8CF6e2309F6e39cC830740877"
+    },
+    "AssignmentProofsModule": {
+        "ephemeralAccountsAddress": "0xb49085e77Cc910D919478EA56140DA169C14CFaF",
+        "publicationSessionsAddress": "0x1881df4f647000c8CF6e2309F6e39cC830740877"
+    },
+    "AutomaticChecksModule": {
+        "publicationSessionsAddress": "0x1881df4f647000c8CF6e2309F6e39cC830740877"
+    },
+    "EditorialScreeningsModule": {
+        "ephemeralAccountsAddress": "0xb49085e77Cc910D919478EA56140DA169C14CFaF",
+        "publicationSessionsAddress": "0x1881df4f647000c8CF6e2309F6e39cC830740877"
+    },
+    "ReviewSubmissionsModule": {
+        "ephemeralAccountsAddress": "0xb49085e77Cc910D919478EA56140DA169C14CFaF",
+        "publicationSessionsAddress": "0x1881df4f647000c8CF6e2309F6e39cC830740877",
+        "assignmentProofsAddress": "0x6224DeE0975259b99237CE357D827B3130685f69"
+    },
+    "ReviewDecisionsModule": {
+        "publicationSessionsAddress": "0x1881df4f647000c8CF6e2309F6e39cC830740877",
+        "reviewSubmissionsAddress": "0x4604c8c8e2d91Ce3Bf5aeCaFA6D7938C8dAAd9e2"
+    }
+}

@@ -1,0 +1,396 @@
+{
+  "_format": "hh3-artifact-1",
+  "contractName": "EphemeralAccounts",
+  "sourceName": "contracts/EphemeralAccounts.sol",
+  "abi": [
+    {
+      "inputs": [
+        {
+          "internalType": "address",
+          "name": "permanentAccountsAddr",
+          "type": "address"
+        }
+      ],
+      "stateMutability": "nonpayable",
+      "type": "constructor"
+    },
+    {
+      "inputs": [],
+      "name": "AccountNotFound",
+      "type": "error"
+    },
+    {
+      "inputs": [],
+      "name": "AccountRevoked",
+      "type": "error"
+    },
+    {
+      "inputs": [],
+      "name": "CommitmentAlreadyUsedGlobally",
+      "type": "error"
+    },
+    {
+      "inputs": [],
+      "name": "CommitmentAlreadyUsedInSession",
+      "type": "error"
+    },
+    {
+      "inputs": [],
+      "name": "InvalidCommitment",
+      "type": "error"
+    },
+    {
+      "inputs": [],
+      "name": "InvalidPseudonym",
+      "type": "error"
+    },
+    {
+      "inputs": [],
+      "name": "InvalidSession",
+      "type": "error"
+    },
+    {
+      "inputs": [],
+      "name": "OnlyAdmin",
+      "type": "error"
+    },
+    {
+      "inputs": [],
+      "name": "OnlySessionManager",
+      "type": "error"
+    },
+    {
+      "inputs": [],
+      "name": "PermanentAccountNotRegistered",
+      "type": "error"
+    },
+    {
+      "inputs": [],
+      "name": "PseudonymAlreadyExists",
+      "type": "error"
+    },
+    {
+      "anonymous": false,
+      "inputs": [
+        {
+          "indexed": true,
+          "internalType": "address",
+          "name": "pseudonym",
+          "type": "address"
+        },
+        {
+          "indexed": true,
+          "internalType": "bytes32",
+          "name": "sessionId",
+          "type": "bytes32"
+        },
+        {
+          "indexed": true,
+          "internalType": "enum IEphemeralAccounts.Role",
+          "name": "role",
+          "type": "uint8"
+        },
+        {
+          "indexed": false,
+          "internalType": "bytes32",
+          "name": "identityCommitment",
+          "type": "bytes32"
+        },
+        {
+          "indexed": false,
+          "internalType": "uint64",
+          "name": "createdAt",
+          "type": "uint64"
+        }
+      ],
+      "name": "EphemeralAccountCreated",
+      "type": "event"
+    },
+    {
+      "anonymous": false,
+      "inputs": [
+        {
+          "indexed": true,
+          "internalType": "address",
+          "name": "pseudonym",
+          "type": "address"
+        },
+        {
+          "indexed": true,
+          "internalType": "bytes32",
+          "name": "sessionId",
+          "type": "bytes32"
+        },
+        {
+          "indexed": false,
+          "internalType": "uint64",
+          "name": "revokedAt",
+          "type": "uint64"
+        }
+      ],
+      "name": "EphemeralAccountRevoked",
+      "type": "event"
+    },
+    {
+      "inputs": [],
+      "name": "admin",
+      "outputs": [
+        {
+          "internalType": "address",
+          "name": "",
+          "type": "address"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "address",
+          "name": "pseudonym",
+          "type": "address"
+        },
+        {
+          "internalType": "bytes32",
+          "name": "sessionId",
+          "type": "bytes32"
+        },
+        {
+          "internalType": "enum IEphemeralAccounts.Role",
+          "name": "role",
+          "type": "uint8"
+        },
+        {
+          "internalType": "bytes32",
+          "name": "identityCommitment",
+          "type": "bytes32"
+        }
+      ],
+      "name": "createEphemeral",
+      "outputs": [],
+      "stateMutability": "nonpayable",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "address",
+          "name": "pseudonym",
+          "type": "address"
+        }
+      ],
+      "name": "exists",
+      "outputs": [
+        {
+          "internalType": "bool",
+          "name": "",
+          "type": "bool"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "address",
+          "name": "pseudonym",
+          "type": "address"
+        }
+      ],
+      "name": "getAccount",
+      "outputs": [
+        {
+          "components": [
+            {
+              "internalType": "bool",
+              "name": "exists",
+              "type": "bool"
+            },
+            {
+              "internalType": "enum IEphemeralAccounts.Role",
+              "name": "role",
+              "type": "uint8"
+            },
+            {
+              "internalType": "bytes32",
+              "name": "sessionId",
+              "type": "bytes32"
+            },
+            {
+              "internalType": "bytes32",
+              "name": "identityCommitment",
+              "type": "bytes32"
+            },
+            {
+              "internalType": "uint64",
+              "name": "createdAt",
+              "type": "uint64"
+            },
+            {
+              "internalType": "bool",
+              "name": "revoked",
+              "type": "bool"
+            }
+          ],
+          "internalType": "struct IEphemeralAccounts.EphemeralAccount",
+          "name": "",
+          "type": "tuple"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "address",
+          "name": "pseudonym",
+          "type": "address"
+        }
+      ],
+      "name": "isActive",
+      "outputs": [
+        {
+          "internalType": "bool",
+          "name": "",
+          "type": "bool"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "bytes32",
+          "name": "identityCommitment",
+          "type": "bytes32"
+        }
+      ],
+      "name": "isCommitmentUsedGlobally",
+      "outputs": [
+        {
+          "internalType": "bool",
+          "name": "",
+          "type": "bool"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "bytes32",
+          "name": "sessionId",
+          "type": "bytes32"
+        },
+        {
+          "internalType": "bytes32",
+          "name": "identityCommitment",
+          "type": "bytes32"
+        }
+      ],
+      "name": "isCommitmentUsedInSession",
+      "outputs": [
+        {
+          "internalType": "bool",
+          "name": "",
+          "type": "bool"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "bytes32",
+          "name": "sessionId",
+          "type": "bytes32"
+        },
+        {
+          "internalType": "address",
+          "name": "pseudonym",
+          "type": "address"
+        }
+      ],
+      "name": "isPseudonymUsedInSession",
+      "outputs": [
+        {
+          "internalType": "bool",
+          "name": "",
+          "type": "bool"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "address",
+          "name": "addr",
+          "type": "address"
+        }
+      ],
+      "name": "isSessionManager",
+      "outputs": [
+        {
+          "internalType": "bool",
+          "name": "",
+          "type": "bool"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "address",
+          "name": "pseudonym",
+          "type": "address"
+        }
+      ],
+      "name": "revokeEphemeral",
+      "outputs": [],
+      "stateMutability": "nonpayable",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "address",
+          "name": "manager",
+          "type": "address"
+        },
+        {
+          "internalType": "bool",
+          "name": "authorized",
+          "type": "bool"
+        }
+      ],
+      "name": "setSessionManager",
+      "outputs": [],
+      "stateMutability": "nonpayable",
+      "type": "function"
+    }
+  ],
+  "bytecode": "0x60a034607957601f61097838819003918201601f19168301916001600160401b03831184841017607d57808492602094604052833981010312607957516001600160a01b038116908190036079575f80546001600160a01b031916331790556080526040516108e690816100928239608051816105280152f35b5f80fd5b634e487b7160e01b5f52604160045260245ffdfe6080806040526004361015610012575f80fd5b5f3560e01c9081630fd2b348146107ec575080634112a613146104865780639f8a13d71461042d5780639f95d0b9146103a7578063c1c67f5f14610347578063c22b786c14610298578063de37ec101461025b578063e6d40ea41461022c578063f6a3d24e146101ef578063f851a440146101c85763fbcbc0f114610095575f80fd5b346101c45760203660031901126101c4576100ae61083c565b5f60a06040516100bd81610852565b828152826020820152826040820152826060820152826080820152015260018060a01b03165f52600160205260405f206040516100f981610852565b815460ff81161515825261011760ff602084019260081c16826108a4565b60018301549260408301938452600360028201549160608501928352015491608084019067ffffffffffffffff8416825260ff60a086019460401c16151584528451156101b557604051945115158552519160038310156101a15760c09567ffffffffffffffff9360208701525160408601525160608501525116608083015251151560a0820152f35b634e487b7160e01b5f52602160045260245ffd5b637d5d475f60e11b5f5260045ffd5b5f80fd5b346101c4575f3660031901126101c4575f546040516001600160a01b039091168152602090f35b346101c45760203660031901126101c4576001600160a01b0361021061083c565b165f526001602052602060ff60405f2054166040519015158152f35b346101c45760203660031901126101c4576004355f526005602052602060ff60405f2054166040519015158152f35b346101c45760203660031901126101c4576001600160a01b0361027c61083c565b165f526002602052602060ff60405f2054166040519015158152f35b346101c45760203660031901126101c4576102b161083c565b5f546001600160a01b03163303610338576001600160a01b03165f818152600160205260409020805460ff16156101b557806003600192016801000000000000000060ff60401b198254161790550154907fb5142dafe39835d43387a7e4ccc9bc8a2cddc6a9c0bf2d9fe79cb3ff874a7e07602060405167ffffffffffffffff42168152a3005b634755657960e01b5f5260045ffd5b346101c45760403660031901126101c45761036061083c565b60243580151581036101c4575f546001600160a01b03163303610338576103a59160018060a01b03165f52600260205260405f209060ff801983541691151516179055565b005b346101c45760403660031901126101c4576024356001600160a01b03811681036101c45760405161040f81610401602082019460043586909160349282526bffffffffffffffffffffffff199060601b1660208201520190565b03601f198101835282610882565b5190205f526004602052602060ff60405f2054166040519015158152f35b346101c45760203660031901126101c4576001600160a01b0361044e61083c565b165f526001602052602060405f2060ff8154169081610473575b506040519015158152f35b60ff91506003015460401c161582610468565b346101c45760803660031901126101c45761049f61083c565b6024356044359160038310156101c457606435335f52600260205260ff60405f205416156107dd576001600160a01b0382169182156107ce5783156107bf5781156107b057825f52600160205260ff60405f20541661072e57815f52600560205260ff60405f2054166107a157604051632d86ce5760e21b8152600481018390526020816024817f00000000000000000000000000000000000000000000000000000000000000006001600160a01b03165afa908115610796575f9161075b575b501561074c57604051602081019085825283604082015260408152610586606082610882565b519020906040516105be8161040160208201948986909160349282526bffffffffffffffffffffffff199060601b1660208201520190565b51902091815f52600360205260ff60405f20541661073d57825f52600460205260ff60405f20541661072e5767ffffffffffffffff42166040519361060285610852565b60018552602085019361061589866108a4565b604086018881526060870195858752608088019185835260a08901915f83528a5f52600160205261065960405f209a5115158b9060ff801983541691151516179055565b5160038110156101a1577f42d2f51020931d66dda59ff5cb7e69f4750e0cbb8652eeec4e8217bc90356c569960409967ffffffffffffffff9360039361ff0084549160081b169061ff0019161783555160018301555160028201550192511667ffffffffffffffff1983541617825551151560ff60401b825491881b169060ff60401b1916179055835f526005602052845f20600160ff198254161790555f526003602052835f20600160ff198254161790555f526004602052825f20600160ff1982541617905582519182526020820152a4005b630324e37760e41b5f5260045ffd5b63f0bd91e760e01b5f5260045ffd5b63023ba94d60e11b5f5260045ffd5b90506020813d60201161078e575b8161077660209383610882565b810103126101c4575180151581036101c45786610560565b3d9150610769565b6040513d5f823e3d90fd5b63bc48192960e01b5f5260045ffd5b636033c4fd60e11b5f5260045ffd5b6316f78d3b60e11b5f5260045ffd5b63b94b25c760e01b5f5260045ffd5b63b86cb9f160e01b5f5260045ffd5b346101c45760403660031901126101c4576020810190600435825260243560408201526040815261081e606082610882565b5190205f526003602052602060ff60405f2054166040519015158152f35b600435906001600160a01b03821682036101c457565b60c0810190811067ffffffffffffffff82111761086e57604052565b634e487b7160e01b5f52604160045260245ffd5b90601f8019910116810190811067ffffffffffffffff82111761086e57604052565b60038210156101a1575256fea2646970667358221220b34758e10e19bfe104438043664810bbf1988f88ba484bba80a03306c94c898e64736f6c634300081c0033",
+  "deployedBytecode": "0x6080806040526004361015610012575f80fd5b5f3560e01c9081630fd2b348146107ec575080634112a613146104865780639f8a13d71461042d5780639f95d0b9146103a7578063c1c67f5f14610347578063c22b786c14610298578063de37ec101461025b578063e6d40ea41461022c578063f6a3d24e146101ef578063f851a440146101c85763fbcbc0f114610095575f80fd5b346101c45760203660031901126101c4576100ae61083c565b5f60a06040516100bd81610852565b828152826020820152826040820152826060820152826080820152015260018060a01b03165f52600160205260405f206040516100f981610852565b815460ff81161515825261011760ff602084019260081c16826108a4565b60018301549260408301938452600360028201549160608501928352015491608084019067ffffffffffffffff8416825260ff60a086019460401c16151584528451156101b557604051945115158552519160038310156101a15760c09567ffffffffffffffff9360208701525160408601525160608501525116608083015251151560a0820152f35b634e487b7160e01b5f52602160045260245ffd5b637d5d475f60e11b5f5260045ffd5b5f80fd5b346101c4575f3660031901126101c4575f546040516001600160a01b039091168152602090f35b346101c45760203660031901126101c4576001600160a01b0361021061083c565b165f526001602052602060ff60405f2054166040519015158152f35b346101c45760203660031901126101c4576004355f526005602052602060ff60405f2054166040519015158152f35b346101c45760203660031901126101c4576001600160a01b0361027c61083c565b165f526002602052602060ff60405f2054166040519015158152f35b346101c45760203660031901126101c4576102b161083c565b5f546001600160a01b03163303610338576001600160a01b03165f818152600160205260409020805460ff16156101b557806003600192016801000000000000000060ff60401b198254161790550154907fb5142dafe39835d43387a7e4ccc9bc8a2cddc6a9c0bf2d9fe79cb3ff874a7e07602060405167ffffffffffffffff42168152a3005b634755657960e01b5f5260045ffd5b346101c45760403660031901126101c45761036061083c565b60243580151581036101c4575f546001600160a01b03163303610338576103a59160018060a01b03165f52600260205260405f209060ff801983541691151516179055565b005b346101c45760403660031901126101c4576024356001600160a01b03811681036101c45760405161040f81610401602082019460043586909160349282526bffffffffffffffffffffffff199060601b1660208201520190565b03601f198101835282610882565b5190205f526004602052602060ff60405f2054166040519015158152f35b346101c45760203660031901126101c4576001600160a01b0361044e61083c565b165f526001602052602060405f2060ff8154169081610473575b506040519015158152f35b60ff91506003015460401c161582610468565b346101c45760803660031901126101c45761049f61083c565b6024356044359160038310156101c457606435335f52600260205260ff60405f205416156107dd576001600160a01b0382169182156107ce5783156107bf5781156107b057825f52600160205260ff60405f20541661072e57815f52600560205260ff60405f2054166107a157604051632d86ce5760e21b8152600481018390526020816024817f00000000000000000000000000000000000000000000000000000000000000006001600160a01b03165afa908115610796575f9161075b575b501561074c57604051602081019085825283604082015260408152610586606082610882565b519020906040516105be8161040160208201948986909160349282526bffffffffffffffffffffffff199060601b1660208201520190565b51902091815f52600360205260ff60405f20541661073d57825f52600460205260ff60405f20541661072e5767ffffffffffffffff42166040519361060285610852565b60018552602085019361061589866108a4565b604086018881526060870195858752608088019185835260a08901915f83528a5f52600160205261065960405f209a5115158b9060ff801983541691151516179055565b5160038110156101a1577f42d2f51020931d66dda59ff5cb7e69f4750e0cbb8652eeec4e8217bc90356c569960409967ffffffffffffffff9360039361ff0084549160081b169061ff0019161783555160018301555160028201550192511667ffffffffffffffff1983541617825551151560ff60401b825491881b169060ff60401b1916179055835f526005602052845f20600160ff198254161790555f526003602052835f20600160ff198254161790555f526004602052825f20600160ff1982541617905582519182526020820152a4005b630324e37760e41b5f5260045ffd5b63f0bd91e760e01b5f5260045ffd5b63023ba94d60e11b5f5260045ffd5b90506020813d60201161078e575b8161077660209383610882565b810103126101c4575180151581036101c45786610560565b3d9150610769565b6040513d5f823e3d90fd5b63bc48192960e01b5f5260045ffd5b636033c4fd60e11b5f5260045ffd5b6316f78d3b60e11b5f5260045ffd5b63b94b25c760e01b5f5260045ffd5b63b86cb9f160e01b5f5260045ffd5b346101c45760403660031901126101c4576020810190600435825260243560408201526040815261081e606082610882565b5190205f526003602052602060ff60405f2054166040519015158152f35b600435906001600160a01b03821682036101c457565b60c0810190811067ffffffffffffffff82111761086e57604052565b634e487b7160e01b5f52604160045260245ffd5b90601f8019910116810190811067ffffffffffffffff82111761086e57604052565b60038210156101a1575256fea2646970667358221220b34758e10e19bfe104438043664810bbf1988f88ba484bba80a03306c94c898e64736f6c634300081c0033",
+  "linkReferences": {},
+  "deployedLinkReferences": {},
+  "immutableReferences": {
+    "10": [
+      {
+        "length": 32,
+        "start": 1320
+      }
+    ]
+  },
+  "inputSourceName": "project/contracts/EphemeralAccounts.sol",
+  "buildInfoId": "solc-0_8_28-46a42b2da8f5ee120275a7fbf8248c95d1be0b2d"
+}

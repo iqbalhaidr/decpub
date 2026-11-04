@@ -1,0 +1,6 @@
+User-agent: *
+Disallow: /
+
+# This repository is a proof-of-concept for academic research.
+# The rules above are a polite request to avoid crawling and indexing.
+# Note: robots.txt is advisory and not a guaranteed technical block.

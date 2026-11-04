@@ -1,0 +1,247 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Pipeline — OJS Incentive</title>
+<style>
+:root{--bg:#f8f8f8;--surface:#fff;--border:#ddd;--text:#1a1a1a;--muted:#666;--accent:#222;--offchain:#1565c0;--onchain:#2e7d32}
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:'Segoe UI',system-ui,sans-serif;background:var(--bg);color:var(--text);font-size:14px;line-height:1.6}
+a{color:var(--accent);text-decoration:none;font-weight:600}
+a:hover{text-decoration:underline}
+.topbar{display:flex;align-items:center;justify-content:space-between;padding:14px 24px;border-bottom:1px solid var(--border);background:var(--surface);position:sticky;top:0;z-index:100}
+.topbar h1{font-size:1rem;font-weight:700}
+.topbar nav{display:flex;gap:16px;font-size:.82rem}
+.topbar nav a.active{border-bottom:2px solid var(--accent)}
+.container{max-width:1060px;margin:0 auto;padding:24px}
+.section{margin-bottom:28px}
+.section h2{font-size:.92rem;font-weight:700;margin-bottom:10px;padding-bottom:6px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:8px}
+.tag{display:inline-block;padding:2px 8px;border-radius:3px;font-size:.65rem;font-weight:700;letter-spacing:.3px;text-transform:uppercase}
+.tag.off{background:#e3f2fd;color:var(--offchain)}
+.tag.on{background:#e8f5e9;color:var(--onchain)}
+.card{background:var(--surface);border:1px solid var(--border);border-radius:6px;padding:18px;margin-bottom:14px}
+.card h3{font-size:.82rem;font-weight:700;margin-bottom:8px;color:var(--muted);text-transform:uppercase;letter-spacing:.3px}
+table{width:100%;border-collapse:collapse;font-size:.78rem}
+th,td{padding:6px 10px;border-bottom:1px solid var(--border);text-align:right}
+th{font-weight:700;background:#f5f5f5;font-size:.72rem;text-transform:uppercase;letter-spacing:.3px;color:var(--muted)}
+td:first-child,th:first-child{text-align:left}
+tr:hover td{background:#fafafa}
+.input-grid{display:grid;grid-template-columns:140px repeat(4,1fr);gap:0;border:1px solid var(--border);border-radius:4px;overflow:hidden;margin-bottom:12px}
+.input-grid .cell{padding:6px 8px;font-size:.78rem;border-right:1px solid var(--border);border-bottom:1px solid var(--border);display:flex;align-items:center}
+.input-grid .cell:nth-child(5n){border-right:none}
+.input-grid .cell.header{background:#f5f5f5;font-weight:700;font-size:.7rem;color:var(--muted);text-transform:uppercase;justify-content:center}
+.input-grid .cell.label{background:#fafafa;font-weight:600;font-size:.78rem}
+.input-grid .cell.label input{width:100%;border:none;background:transparent;font-size:.78rem;font-weight:600;padding:0}
+.input-grid .cell.label input:focus{outline:none;background:#f0f8ff}
+.input-grid input[type=number]{width:100%;border:none;background:transparent;text-align:center;font-size:.8rem;font-family:'Consolas',monospace;padding:2px}
+.input-grid input[type=number]:focus{outline:none;background:#f0f8ff}
+.params{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px;margin-bottom:14px}
+.param{display:flex;flex-direction:column;gap:3px}
+.param label{font-size:.72rem;font-weight:600;color:var(--muted)}
+.param .row{display:flex;align-items:center;gap:8px}
+.param input[type=range]{flex:1;accent-color:var(--accent)}
+.param .val{font-size:.82rem;font-weight:700;min-width:36px;text-align:right;font-family:'Consolas',monospace}
+.param .desc{font-size:.68rem;color:var(--muted);margin-top:2px;line-height:1.4}
+.param select{padding:4px 8px;border:1px solid var(--border);border-radius:4px;font-size:.78rem;width:100%}
+.btn{display:inline-block;padding:8px 18px;border:1px solid var(--accent);border-radius:4px;background:var(--accent);color:#fff;cursor:pointer;font-size:.8rem;font-weight:600;transition:all .15s}
+.btn:hover{background:#000}
+.btn:disabled{opacity:.4;cursor:not-allowed}
+.btn.green{background:var(--onchain);border-color:var(--onchain)}
+.btn.green:hover{background:#1b5e20}
+.status{padding:8px 12px;border-radius:4px;font-size:.78rem;margin-top:10px;border:1px solid var(--border)}
+.status.ok{background:#e8f5e9;color:#1b5e20;border-color:#a5d6a7}
+.status.err{background:#fce4ec;color:#b71c1c;border-color:#ef9a9a}
+.status.info{background:#f5f5f5;color:#333}
+.weight-bar{display:flex;align-items:center;gap:6px;margin:3px 0}
+.weight-bar .bar{height:14px;background:var(--accent);border-radius:2px;transition:width .3s}
+.weight-bar .wlabel{font-size:.72rem;min-width:30px;font-family:'Consolas',monospace}
+.metrics{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:10px;margin-top:12px}
+.metric{text-align:center;padding:10px;border:1px solid var(--border);border-radius:4px;background:#fafafa}
+.metric .mv{font-size:1.2rem;font-weight:700}
+.metric .ml{font-size:.68rem;color:var(--muted);text-transform:uppercase;letter-spacing:.3px}
+.hidden{display:none}
+.flow{font-size:.75rem;color:var(--muted);margin-bottom:16px;padding:10px;background:#fafafa;border-radius:4px;text-align:center;letter-spacing:.3px}
+.bwm-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:6px;margin-bottom:8px}
+.bwm-grid .bwm-item{display:flex;flex-direction:column;gap:2px}
+.bwm-grid .bwm-item label{font-size:.68rem;color:var(--muted);font-weight:600}
+.bwm-grid .bwm-item input{width:100%;padding:4px 6px;border:1px solid var(--border);border-radius:3px;font-size:.78rem;text-align:center;font-family:'Consolas',monospace}
+.preset-bar{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:12px}
+.preset{padding:4px 10px;border:1px solid var(--border);border-radius:3px;font-size:.7rem;cursor:pointer;background:var(--surface);color:var(--muted);font-weight:600;transition:all .15s}
+.preset:hover{border-color:var(--accent);color:var(--accent)}
+.preset.active{background:var(--accent);color:#fff;border-color:var(--accent)}
+.sigmoid-preview{border:1px solid var(--border);border-radius:4px;padding:12px;margin-top:10px;background:#fafafa}
+.sigmoid-preview canvas{width:100%;height:120px;display:block}
+</style>
+</head>
+<body>
+<div class="topbar">
+  <h1>Incentive Pipeline</h1>
+  <nav>
+    <a href="/">Home</a>
+    <a href="/pipeline.html" class="active">Pipeline (Hardhat)</a>
+    <a href="/demo.html">Demo Sepolia</a>
+    <a href="/monitor.html">Monitor</a>
+    <a href="/evaluation.html">Evaluasi</a>
+  </nav>
+</div>
+<div class="container">
+
+<div class="flow">
+  <span class="tag off">OFF-CHAIN</span> Input &rarr; Normalize &rarr; BWM+ECWM &rarr; TOPSIS &rarr; Sigmoid
+  &nbsp;&nbsp;
+  <span class="tag on">ON-CHAIN</span> Execute Distribution (verify + mint)
+</div>
+
+<!-- INPUT: Journal + Reviewers -->
+<div class="section">
+  <h2><span class="tag off">INPUT</span> Journal Submission</h2>
+  <div class="card">
+    <h3>Journal Info</h3>
+    <div style="display:flex;gap:12px;margin-bottom:14px;flex-wrap:wrap">
+      <div class="param" style="flex:1;min-width:200px"><label>Journal Title</label><input type="text" id="journalTitle" value="" placeholder="Auto-filled from submitted paper" style="padding:6px 8px;border:1px solid var(--border);border-radius:4px;font-size:.82rem;width:100%"></div>
+      <div class="param" style="width:160px"><label>Entry Cost (ETH)</label><input type="number" id="p-pool" min="0.01" max="100" step="0.01" value="2.00" style="padding:6px 8px;border:1px solid var(--border);border-radius:4px;font-size:.82rem;width:100%;font-family:'Consolas',monospace"></div>
+    </div>
+    <h3>Paper &amp; Reviews (AI &rarr; q2, q3)</h3>
+    <p style="font-size:.72rem;color:var(--muted);margin-bottom:8px">q2 (relevance) and q3 (actionability) are derived from the review text by a pre-trained language model (inference-only). q1 (days) and q4 (reputation) are entered in the grid below.</p>
+    <div style="display:flex;align-items:center;gap:10px;margin-bottom:6px;flex-wrap:wrap">
+      <label style="font-size:.72rem;color:var(--muted)">Submit Paper (.txt / .md / .pdf)</label>
+      <input type="file" id="paperFile" accept=".txt,.md,.pdf,text/plain,application/pdf" onchange="onPaperFile(this)" style="font-size:.72rem">
+    </div>
+    <label style="font-size:.72rem;color:var(--muted)">Paper Abstract (auto-extracted on submit — editable)</label>
+    <textarea id="paperText" rows="3" style="width:100%;padding:6px 8px;border:1px solid var(--border);border-radius:4px;font-size:.78rem;margin-bottom:10px"></textarea>
+    <div id="reviewsContainer"></div>
+    <div style="display:flex;align-items:center;gap:10px;margin:8px 0 4px">
+      <button class="btn" onclick="computeQoS()" style="background:var(--surface);color:var(--accent);font-size:.74rem;padding:6px 12px">Compute q2/q3 from text (AI)</button>
+      <span id="qosProvider" style="font-size:.7rem;color:var(--muted)"></span>
+    </div>
+    <h3>Reviewer QoS Data</h3>
+    <div class="input-grid" id="matrixGrid"></div>
+    <div style="display:flex;gap:8px;margin-top:8px">
+      <button class="btn" onclick="addReviewer()" style="background:var(--surface);color:var(--accent);font-size:.72rem;padding:5px 10px">+ Add Reviewer</button>
+      <button class="btn" onclick="removeReviewer()" style="background:var(--surface);color:var(--accent);font-size:.72rem;padding:5px 10px">- Remove</button>
+      <button class="btn" onclick="loadQ4FromChain()" id="loadQ4Btn" disabled style="background:var(--surface);color:var(--onchain);font-size:.72rem;padding:5px 10px">Load q4 from chain</button>
+    </div>
+  </div>
+</div>
+
+<!-- BWM CONFIG -->
+<div class="section">
+  <h2><span class="tag off">CONFIG</span> Editor Weighting (BWM)</h2>
+  <div class="card">
+    <h3>Presets (Quick Config)</h3>
+    <p style="font-size:.72rem;color:var(--muted);margin-bottom:8px">Select a preset that matches the editor's priority, or configure manually below.</p>
+    <div class="preset-bar" id="presetBar">
+      <span class="preset active" onclick="applyPreset('balanced')">Balanced</span>
+      <span class="preset" onclick="applyPreset('accuracy')">Actionability-First</span>
+      <span class="preset" onclick="applyPreset('speed')">Speed-First</span>
+      <span class="preset" onclick="applyPreset('depth')">Relevance-First</span>
+      <span class="preset" onclick="applyPreset('reputation')">Reputation-First</span>
+    </div>
+    <h3>Manual Configuration</h3>
+    <div style="display:flex;gap:16px;margin-bottom:12px;flex-wrap:wrap">
+      <div class="param"><label>Best Criterion (most important)</label><select id="bwm-best" onchange="updateBWMLabels()"><option value="0">Q1: Response Time</option><option value="1">Q2: Relevance</option><option value="2" selected>Q3: Actionability</option><option value="3">Q4: Reputation</option></select></div>
+      <div class="param"><label>Worst Criterion (least important)</label><select id="bwm-worst" onchange="updateBWMLabels()"><option value="0">Q1: Response Time</option><option value="1">Q2: Relevance</option><option value="2">Q3: Actionability</option><option value="3" selected>Q4: Reputation</option></select></div>
+    </div>
+    <div style="margin-bottom:8px">
+      <label style="font-size:.72rem;font-weight:600;color:var(--muted);display:block;margin-bottom:4px">Best-to-Others: how many times more important is the Best vs each criterion (1=equal, 9=extremely more)</label>
+      <div class="bwm-grid">
+        <div class="bwm-item"><label>vs Q1 (Time)</label><input type="number" min="1" max="9" value="3" id="bo-0"></div>
+        <div class="bwm-item"><label>vs Q2 (Rel)</label><input type="number" min="1" max="9" value="2" id="bo-1"></div>
+        <div class="bwm-item"><label>vs Q3 (Act)</label><input type="number" min="1" max="9" value="1" id="bo-2"></div>
+        <div class="bwm-item"><label>vs Q4 (Rep)</label><input type="number" min="1" max="9" value="5" id="bo-3"></div>
+      </div>
+    </div>
+    <div>
+      <label style="font-size:.72rem;font-weight:600;color:var(--muted);display:block;margin-bottom:4px">Others-to-Worst: how many times better is each criterion vs the Worst (1=equal, 9=extremely better)</label>
+      <div class="bwm-grid">
+        <div class="bwm-item"><label>Q1 vs Worst</label><input type="number" min="1" max="9" value="3" id="ow-0"></div>
+        <div class="bwm-item"><label>Q2 vs Worst</label><input type="number" min="1" max="9" value="4" id="ow-1"></div>
+        <div class="bwm-item"><label>Q3 vs Worst</label><input type="number" min="1" max="9" value="5" id="ow-2"></div>
+        <div class="bwm-item"><label>Q4 vs Worst</label><input type="number" min="1" max="9" value="1" id="ow-3"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- FUSION + SIGMOID -->
+<div class="section">
+  <h2><span class="tag off">CONFIG</span> Fusion &amp; Sigmoid Parameters</h2>
+  <div class="card">
+    <div class="params">
+      <div class="param">
+        <label>Lambda &mdash; Editor vs Data Weight</label>
+        <div class="row"><input type="range" id="p-lambda" min="0" max="1" step="0.05" value="0.6" oninput="this.nextElementSibling.textContent=this.value"><span class="val">0.6</span></div>
+        <div class="desc">0.0 = fully data-driven (ECWM only). 1.0 = fully editor-driven (BWM only). Default 0.6 = editor has 60% authority.</div>
+      </div>
+      <div class="param">
+        <label>Gamma &mdash; Entropy vs CRITIC Balance</label>
+        <div class="row"><input type="range" id="p-gamma" min="0" max="1" step="0.05" value="0.5" oninput="this.nextElementSibling.textContent=this.value"><span class="val">0.5</span></div>
+        <div class="desc">0.0 = CRITIC only (correlation-based). 1.0 = Entropy only (dispersion-based). Default 0.5 = equal mix of both objective methods.</div>
+      </div>
+    </div>
+    <div class="params" style="margin-top:12px">
+      <div class="param">
+        <label>Sigmoid k &mdash; Steepness</label>
+        <div class="row"><input type="range" id="p-k" min="1" max="20" step="0.5" value="10" oninput="this.nextElementSibling.textContent=this.value;drawSigmoid()"><span class="val">10</span></div>
+        <div class="desc">Controls reward gap between high/low performers. Low k = gentle curve (small differences). High k = sharp cutoff (winner-take-more).</div>
+      </div>
+      <div class="param">
+        <label>Sigmoid x0 &mdash; Inflection Point</label>
+        <div class="row"><input type="range" id="p-x0" min="0.1" max="0.9" step="0.05" value="0.5" oninput="this.nextElementSibling.textContent=this.value;drawSigmoid()"><span class="val">0.5</span></div>
+        <div class="desc">Score threshold where reward transitions from low to high. x0=0.5 means median performers get ~50% of max reward.</div>
+      </div>
+    </div>
+    <div class="sigmoid-preview">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
+        <span style="font-size:.72rem;font-weight:700;color:var(--muted)">SIGMOID CURVE PREVIEW</span>
+        <span style="font-size:.68rem;color:var(--muted)" id="sigmoidInfo">f(s) = 1/(1+e^(-k*(s-x0)))</span>
+      </div>
+      <canvas id="sigmoidCanvas" width="600" height="120"></canvas>
+      <div style="display:flex;justify-content:space-between;font-size:.68rem;color:var(--muted);margin-top:4px">
+        <span>Score = 0 (worst)</span>
+        <span>Score = 1 (best)</span>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- RUN BUTTONS -->
+<div class="section">
+  <div style="display:flex;gap:12px;flex-wrap:wrap;align-items:center">
+    <button class="btn" onclick="runOffchain()">Run Off-Chain Pipeline</button>
+    <button class="btn green" onclick="runOnchain()" id="onchainBtn" disabled>Execute On-Chain</button>
+    <span id="deployWarning" style="font-size:.75rem;color:var(--muted)">Deploy contracts on the Monitor page first.</span>
+  </div>
+  <div id="status"></div>
+</div>
+
+<!-- RESULTS -->
+<div id="results" class="hidden">
+<div class="section">
+  <h2><span class="tag off">STEP 1</span> Normalization</h2>
+  <div class="card"><div id="normTable"></div><div style="font-size:.72rem;color:var(--muted);margin-top:6px">Q1 (cost): inverted. Q2-Q4 (benefit): preserved.</div></div>
+</div>
+<div class="section">
+  <h2><span class="tag off">STEP 2</span> Weighting</h2>
+  <div class="card"><div id="weightTable"></div><div id="weightBars"></div><div id="ecwmDetail"></div></div>
+</div>
+<div class="section">
+  <h2><span class="tag off">STEP 3</span> TOPSIS Ranking</h2>
+  <div class="card"><div id="topsisTable"></div></div>
+</div>
+<div class="section">
+  <h2><span class="tag off">STEP 4</span> Sigmoid + Distribution</h2>
+  <div class="card"><div id="distTable"></div><div class="metrics" id="metricsGrid"></div></div>
+</div>
+<div class="section hidden" id="onchainResult">
+  <h2><span class="tag on">STEP 5</span> On-Chain Execution</h2>
+  <div class="card"><div id="onchainTable"></div><div id="onchainMeta" style="font-size:.72rem;color:var(--muted);margin-top:8px"></div></div>
+</div>
+</div>
+
+</div>
+
+<script src="js/pipeline.js" defer></script>
+</body>
+</html>

@@ -1,0 +1,33 @@
+<!doctype html>
+<html lang="id"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Demo Sepolia — Pilih Peran</title>
+<link rel="stylesheet" href="/style.css">
+</head><body>
+<nav class="top"><a href="/">Beranda</a><a href="/sepolia.html" class="active">Sepolia</a><a href="/author.html">Author</a><a href="/reviewer.html">Reviewer</a><a href="/editor.html">Editor</a><a href="/public.html">Public</a></nav>
+<div class="wrap">
+  <h1>Demo Sepolia</h1>
+  <!-- <p class="sub">Flow lengkap di jaringan publik: Author mengajukan paper + escrow (MetaMask) &rarr; Reviewer mereview &rarr; Editor menetapkan bobot &amp; mengeksekusi distribusi on-chain &rarr; Public memantau &amp; memverifikasi di Etherscan.</p> -->
+
+  <div class="grid">
+    <a class="cardlink" href="/author.html">
+      <h2>Author</h2>
+      <!-- <p class="muted">Connect MetaMask, unggah PDF paper, tentukan reviewer &amp; escrow ETH, submit (createBatch — escrow terkunci on-chain).</p> -->
+    </a>
+    <a class="cardlink" href="/reviewer.html">
+      <h2>Reviewer</h2>
+      <!-- <p class="muted">Lihat paper yang ditugaskan ke alamatmu, tulis ulasan. Skor kualitas (AI) dihitung otomatis &amp; disembunyikan (anti-gaming).</p> -->
+    </a>
+    <a class="cardlink" href="/editor.html">
+      <h2>Editor</h2>
+      <!-- <p class="muted">Pantau submisi &amp; status review, atur kebijakan bobot (&lambda;), lalu eksekusi distribusi imbalan on-chain (TOPSIS + Sigmoid + SBT).</p> -->
+    </a>
+    <a class="cardlink" href="/public.html">
+      <h2>Public</h2>
+      <!-- <p class="muted">Transparansi: paper, hasil distribusi (skor, ETH, reputasi), alamat reviewer + saldo SBT — semua terverifikasi di Etherscan.</p> -->
+    </a>
+  </div>
+
+  <!-- <div class="note" style="margin-top:16px">Alur singkat & disederhanakan sebagai <b>prototipe demonstrasi</b> (assignment editorial &amp; integrasi OJS penuh di luar lingkup). Jalankan server dengan <code>HARDHAT_NETWORK=sepolia</code> agar mode ini aktif.</div> -->
+</div>
+</body></html>

@@ -1,0 +1,90 @@
+[
+  {
+    "suite": "Quantitative Proxy",
+    "scenario": "Evaluates Assignment Proof Summary",
+    "generatedAt": "2026-06-30T19:24:32.349Z",
+    "metrics": {
+      "anonymitySetSize": 3,
+      "sensitiveFieldCount": 0,
+      "commitSensitiveCount": 0,
+      "revealSensitiveCount": 0,
+      "exposureDelta": 0,
+      "forbiddenIdentityFieldCount": 0,
+      "pseudonymousFieldCount": 2,
+      "reviewerSelectionDensity": 0,
+      "additionalReviewerRatio": 0,
+      "entropy": 1.584962500721156,
+      "maxEntropy": 1.584962500721156,
+      "effectiveAnonymitySetSize": 3,
+      "degreeOfAnonymity": 1
+    },
+    "notes": "Artifact generated automatically for thesis evaluation chapter."
+  },
+  {
+    "suite": "Quantitative Proxy",
+    "scenario": "Evaluates Reviewer Submission (Commit Only)",
+    "generatedAt": "2026-06-30T19:24:32.351Z",
+    "metrics": {
+      "anonymitySetSize": 1,
+      "sensitiveFieldCount": 0,
+      "commitSensitiveCount": 0,
+      "revealSensitiveCount": 0,
+      "exposureDelta": 0,
+      "forbiddenIdentityFieldCount": 0,
+      "pseudonymousFieldCount": 1,
+      "reviewerSelectionDensity": 0,
+      "additionalReviewerRatio": 0,
+      "supportsFormalEntropy": false,
+      "reasonNoEntropy": "Individual reviewer submission tracks exposure delta, not candidate entropy.",
+      "entropy": 0,
+      "maxEntropy": 0,
+      "effectiveAnonymitySetSize": 1,
+      "degreeOfAnonymity": 0
+    },
+    "notes": "Artifact generated automatically for thesis evaluation chapter."
+  },
+  {
+    "suite": "Quantitative Proxy",
+    "scenario": "Evaluates Reviewer Submission (Reveal Phase)",
+    "generatedAt": "2026-06-30T19:24:32.351Z",
+    "metrics": {
+      "anonymitySetSize": 1,
+      "sensitiveFieldCount": 5,
+      "commitSensitiveCount": 0,
+      "revealSensitiveCount": 5,
+      "exposureDelta": 5,
+      "forbiddenIdentityFieldCount": 0,
+      "pseudonymousFieldCount": 2,
+      "reviewerSelectionDensity": 0,
+      "additionalReviewerRatio": 0,
+      "supportsFormalEntropy": false,
+      "reasonNoEntropy": "Individual reviewer submission tracks exposure delta, not candidate entropy.",
+      "entropy": 0,
+      "maxEntropy": 0,
+      "effectiveAnonymitySetSize": 1,
+      "degreeOfAnonymity": 0
+    },
+    "notes": "Artifact generated automatically for thesis evaluation chapter."
+  },
+  {
+    "suite": "Quantitative Proxy",
+    "scenario": "Evaluates Reviewer Selection Batch as Anonymity Set Proxy with Rich Metrics",
+    "generatedAt": "2026-06-30T19:24:32.369Z",
+    "metrics": {
+      "anonymitySetSize": 3,
+      "sensitiveFieldCount": 0,
+      "commitSensitiveCount": 0,
+      "revealSensitiveCount": 0,
+      "exposureDelta": 0,
+      "forbiddenIdentityFieldCount": 0,
+      "pseudonymousFieldCount": 0,
+      "reviewerSelectionDensity": 0.6,
+      "additionalReviewerRatio": 0.4,
+      "entropy": 1.584962500721156,
+      "maxEntropy": 1.584962500721156,
+      "effectiveAnonymitySetSize": 3,
+      "degreeOfAnonymity": 1
+    },
+    "notes": "Artifact generated automatically for thesis evaluation chapter."
+  }
+]

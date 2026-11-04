@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Monitor — OJS Incentive</title>
+<style>
+:root{--bg:#f8f8f8;--surface:#fff;--border:#ddd;--text:#1a1a1a;--muted:#666;--accent:#222;--onchain:#2e7d32}
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:'Segoe UI',system-ui,sans-serif;background:var(--bg);color:var(--text);font-size:14px;line-height:1.6}
+a{color:var(--accent);text-decoration:none;font-weight:600}
+a:hover{text-decoration:underline}
+.topbar{display:flex;align-items:center;justify-content:space-between;padding:14px 24px;border-bottom:1px solid var(--border);background:var(--surface);position:sticky;top:0;z-index:100}
+.topbar h1{font-size:1rem;font-weight:700}
+.topbar nav{display:flex;gap:16px;font-size:.82rem}
+.topbar nav a.active{border-bottom:2px solid var(--accent)}
+.container{max-width:1000px;margin:0 auto;padding:24px}
+.section{margin-bottom:28px}
+.section h2{font-size:.92rem;font-weight:700;margin-bottom:10px;padding-bottom:6px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:8px}
+.card{background:var(--surface);border:1px solid var(--border);border-radius:6px;padding:18px;margin-bottom:14px}
+.card h3{font-size:.82rem;font-weight:700;margin-bottom:8px;color:var(--muted);text-transform:uppercase;letter-spacing:.3px}
+.card-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:14px}
+.kv{display:grid;grid-template-columns:100px 1fr;gap:3px 10px;font-size:.78rem}
+.kv dt{color:var(--muted);font-weight:600}
+.kv dd{font-family:'Consolas',monospace;word-break:break-all;font-size:.72rem}
+table{width:100%;border-collapse:collapse;font-size:.78rem}
+th,td{padding:6px 10px;border-bottom:1px solid var(--border);text-align:right}
+th{font-weight:700;background:#f5f5f5;font-size:.72rem;text-transform:uppercase;letter-spacing:.3px;color:var(--muted)}
+td:first-child,th:first-child{text-align:left}
+tr:hover td{background:#fafafa}
+.btn{display:inline-block;padding:8px 18px;border:1px solid var(--accent);border-radius:4px;background:var(--accent);color:#fff;cursor:pointer;font-size:.8rem;font-weight:600;transition:all .15s}
+.btn:hover{background:#000}
+.btn:disabled{opacity:.4;cursor:not-allowed}
+.btn.secondary{background:var(--surface);color:var(--accent);border-color:var(--border)}
+.btn.secondary:hover{background:#f5f5f5}
+.status{padding:8px 12px;border-radius:4px;font-size:.78rem;margin-top:10px;border:1px solid var(--border)}
+.status.ok{background:#e8f5e9;color:#1b5e20;border-color:#a5d6a7}
+.status.err{background:#fce4ec;color:#b71c1c;border-color:#ef9a9a}
+.status.info{background:#f5f5f5;color:#333}
+.stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:10px;margin-bottom:14px}
+.stat{text-align:center;padding:14px;border:1px solid var(--border);border-radius:4px;background:var(--surface)}
+.stat .sv{font-size:1.4rem;font-weight:700}
+.stat .sl{font-size:.68rem;color:var(--muted);text-transform:uppercase;letter-spacing:.3px}
+.mono{font-family:'Consolas',monospace;font-size:.72rem}
+.badge{display:inline-block;padding:2px 8px;border-radius:3px;font-size:.68rem;font-weight:700}
+.badge.ok{background:#e8f5e9;color:#2e7d32}
+.empty{color:var(--muted);font-size:.82rem;padding:16px;text-align:center;border:1px dashed var(--border);border-radius:4px}
+.hidden{display:none}
+.live-dot{width:8px;height:8px;border-radius:50%;background:#4caf50;display:inline-block;animation:pulse 2s infinite}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.4}}
+.refresh-bar{display:flex;align-items:center;gap:10px;margin-bottom:16px;font-size:.78rem;color:var(--muted)}
+</style>
+</head>
+<body>
+<div class="topbar">
+  <h1>On-Chain Monitor</h1>
+  <nav>
+    <a href="/">Home</a>
+    <a href="/pipeline.html">Pipeline</a>
+    <a href="/monitor.html" class="active">Monitor</a>
+    <a href="/evaluation.html">Evaluasi</a>
+  </nav>
+</div>
+<div class="container">
+
+<!-- DEPLOY -->
+<div class="section" id="deploySection">
+  <h2>Deploy Smart Contracts</h2>
+  <div class="card">
+    <p style="font-size:.8rem;color:var(--muted);margin-bottom:12px">Deploy the 2 contracts (ReputationSBT Soulbound, IncentiveEngine) to local Hardhat network. Required before running on-chain distributions.</p>
+    <button class="btn" onclick="deploy()" id="deployBtn">Deploy Contracts</button>
+    <div id="deployStatus"></div>
+  </div>
+  <div id="contractInfo"></div>
+</div>
+
+<!-- LIVE STATE -->
+<div class="section hidden" id="liveSection">
+  <h2><span class="live-dot"></span> Blockchain State</h2>
+  <div class="refresh-bar">
+    <span id="lastRefresh">--</span>
+    <button class="btn secondary" onclick="refresh()" style="padding:4px 10px;font-size:.72rem">Refresh</button>
+    <label style="display:flex;align-items:center;gap:4px;cursor:pointer"><input type="checkbox" id="autoRefresh" checked onchange="toggleAuto()"> Auto (5s)</label>
+  </div>
+  <div class="stats" id="statsGrid"></div>
+</div>
+
+<!-- JOURNALS -->
+<div class="section hidden" id="journalSection">
+  <h2>Journal Distributions</h2>
+  <div id="journalList"></div>
+</div>
+
+<!-- REVIEWERS -->
+<div class="section hidden" id="reviewerSection">
+  <h2>Reviewer Accounts</h2>
+  <div id="reviewerTable"></div>
+</div>
+
+</div>
+
+<script src="js/monitor.js" defer></script>
+</body>
+</html>
