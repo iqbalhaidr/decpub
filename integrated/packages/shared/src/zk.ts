@@ -83,6 +83,8 @@ export const signals = {
     sessionCommitment,
     nullifier,
   ],
+  /** [sessionId, criteriaHash, assignmentCommitment] */
+  assignment: (sessionId: Hex, criteriaHash: Hex, commitment: Hex): Hex[] => [sessionId, criteriaHash, commitment],
   /** [sessionId, assignmentCommitment, pseudonym] */
   assignmentOwnership: (sessionId: Hex, commitment: Hex, pseudonym: Address): Hex[] => [
     sessionId,

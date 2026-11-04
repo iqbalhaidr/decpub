@@ -15,6 +15,9 @@ export class ApiError extends Error {
 }
 
 export class Api {
+  /** Kait pengamat: dipanggil dengan isi permintaan keluar. Dipakai demo untuk membuktikan apa yang dikirim klien ke server. */
+  static trace?: (e: { method: string; path: string; body: string }) => void;
+
   token?: string;
   constructor(public readonly base: string) {}
 
@@ -48,6 +51,7 @@ export class Api {
   }
 
   async post<T = any>(path: string, json?: unknown): Promise<T> {
+    Api.trace?.({ method: "POST", path, body: JSON.stringify(json ?? {}) });
     return this.handle<T>(
       await fetch(this.base + path, { method: "POST", headers: this.headers({ "content-type": "application/json" }), body: JSON.stringify(json ?? {}) }),
       `POST ${path}`,

@@ -31,6 +31,8 @@ export function testConfig(over: Partial<AppConfig> = {}): AppConfig {
     autoAdvance: false,
     seedDemoAccounts: true,
     maxUploadBytes: 20 * 1024 * 1024,
+    logFromBlock: 0,
+    logWindow: 5000,
     ...over,
   };
 }

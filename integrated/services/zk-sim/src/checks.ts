@@ -9,7 +9,9 @@ import {
   ZkKind,
   assignmentCommitment,
   credentialDigest,
+  criteriaHash,
   deriveEphemeral,
+  fieldCredentialDigest,
   identityCommitment,
   isRole,
   type ZkKindValue,
@@ -121,9 +123,55 @@ const checkAssignmentOwnership: Checker = async (witnessRaw, signals) => {
   }
 };
 
+/**
+ * ASSIGNMENT (P05/P06): kandidat yang diundang memenuhi kriteria seleksi.
+ * Witness (dari server, yang memilih kandidat): identityCommitment, field, fieldCredential,
+ * criteriaFields, inviteSalt. Sinyal publik: [sessionId, criteriaHash, assignmentCommitment].
+ * Yang dibuktikan: kriteria sesuai hash yang dicatat on-chain, kandidat anggota terdaftar dengan
+ * kredensial bidang sah (diterbitkan penerbit tepercaya) untuk satu bidang dalam kriteria, dan
+ * commitment penugasan terikat ke salt undangan kandidat itu.
+ */
+const checkAssignment: Checker = async (witnessRaw, signals, ctx) => {
+  if (signals.length !== 3) bad("ASSIGNMENT butuh 3 sinyal publik");
+  const w = asRecord(witnessRaw, "witness");
+  if (!isBytes32(w.identityCommitment)) bad("witness.identityCommitment harus bytes32 hex");
+  if (!isBytes32(w.inviteSalt)) bad("witness.inviteSalt harus bytes32 hex");
+  if (typeof w.field !== "string" || !w.field) bad("witness.field harus teks");
+  if (typeof w.fieldCredential !== "string" || !isHex(w.fieldCredential)) bad("witness.fieldCredential harus hex");
+  if (!Array.isArray(w.criteriaFields) || w.criteriaFields.length === 0 || !w.criteriaFields.every((f) => typeof f === "string")) {
+    bad("witness.criteriaFields harus larik teks tidak kosong");
+  }
+  const [sessionId, hashSignal, commitment] = signals;
+  const fields = w.criteriaFields as string[];
+
+  if (criteriaHash(fields).toLowerCase() !== hashSignal.toLowerCase()) {
+    throw new ZkCheckError("CRITERIA_MISMATCH", "kriteria tidak sesuai hash kriteria publik");
+  }
+  if (!fields.map((f) => f.trim().toLowerCase()).includes(w.field.trim().toLowerCase())) {
+    throw new ZkCheckError("FIELD_NOT_IN_CRITERIA", "bidang yang dibuktikan tidak termasuk kriteria");
+  }
+  if (!(await ctx.chain.isIdentityRegistered(w.identityCommitment))) {
+    throw new ZkCheckError("IDENTITY_NOT_REGISTERED", "kandidat bukan anggota terdaftar");
+  }
+  let signer: Address | null = null;
+  try {
+    signer = await recoverMessageAddress({
+      message: { raw: fieldCredentialDigest(w.identityCommitment, w.field.trim().toLowerCase()) },
+      signature: w.fieldCredential as Hex,
+    });
+  } catch {
+    signer = null;
+  }
+  if (!signer || signer.toLowerCase() !== ctx.issuer.toLowerCase()) {
+    throw new ZkCheckError("CREDENTIAL_INVALID", "kandidat tidak punya kredensial bidang yang sah");
+  }
+  if (assignmentCommitment(sessionId, w.inviteSalt).toLowerCase() !== commitment.toLowerCase()) {
+    throw new ZkCheckError("ASSIGNMENT_NOT_OWNED", "salt undangan tidak sesuai commitment penugasan");
+  }
+};
+
 /** Jenis yang belum punya pemeriksa, beserta milestone yang mengisinya. */
 const PENDING: Partial<Record<ZkKindValue, string>> = {
-  [ZkKind.Assignment]: "M4",
   [ZkKind.NoteBind]: "M6",
   [ZkKind.NoteRefund]: "M6",
   [ZkKind.ReputationBucket]: "M7",
@@ -133,6 +181,7 @@ const PENDING: Partial<Record<ZkKindValue, string>> = {
 
 const CHECKERS: Partial<Record<ZkKindValue, Checker>> = {
   [ZkKind.Ephemeral]: checkEphemeral,
+  [ZkKind.Assignment]: checkAssignment,
   [ZkKind.AssignmentOwnership]: checkAssignmentOwnership,
 };
 

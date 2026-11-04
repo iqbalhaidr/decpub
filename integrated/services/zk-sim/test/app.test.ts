@@ -10,7 +10,9 @@ import {
   ZkKind,
   ZkProveError,
   assignmentCommitment,
+  criteriaHash,
   deriveEphemeral,
+  issueFieldCredential,
   devPrivateKey,
   generateSecret,
   identityCommitment,
@@ -186,6 +188,65 @@ describe("zk-sim ASSIGNMENT_OWNERSHIP", () => {
     // komitmen sesi lain
     const other = signals.assignmentOwnership(SESSION_2, commitment, pseudonym);
     await expectRejected(prover.prove(ZkKind.AssignmentOwnership, { inviteSalt: salt }, other), "ASSIGNMENT_NOT_OWNED");
+  });
+});
+
+describe("zk-sim ASSIGNMENT", () => {
+  const salt = ("0x" + "6a".repeat(32)) as Hex;
+  const fields = ["ai", "blockchain"];
+
+  async function candidate(field = "ai", key: Hex = ISSUER_KEY) {
+    const m = await member(Role.Reviewer);
+    const fieldCredential = await issueFieldCredential(key, m.commitment, field);
+    return { ...m, field, fieldCredential };
+  }
+  const witness = (c: Awaited<ReturnType<typeof candidate>>, over: Record<string, unknown> = {}) => ({
+    identityCommitment: c.commitment,
+    field: c.field,
+    fieldCredential: c.fieldCredential,
+    criteriaFields: fields,
+    inviteSalt: salt,
+    ...over,
+  });
+  const sig = signals.assignment(SESSION, criteriaHash(fields), assignmentCommitment(SESSION, salt));
+
+  it("proves that an invited, field-credentialed member meets the criteria", async () => {
+    const c = await candidate("blockchain");
+    const proof = await prover.prove(ZkKind.Assignment, witness(c), sig);
+    assert.equal(proof.kind, ZkKind.Assignment);
+    assert.deepEqual(proof.publicSignals, sig);
+  });
+
+  it("rejects a candidate whose field is outside the criteria", async () => {
+    const c = await candidate("data-science");
+    await expectRejected(prover.prove(ZkKind.Assignment, witness(c), sig), "FIELD_NOT_IN_CRITERIA");
+  });
+
+  it("rejects a field credential not issued by the trusted issuer", async () => {
+    const c = await candidate("ai", ROGUE_KEY);
+    await expectRejected(prover.prove(ZkKind.Assignment, witness(c), sig), "CREDENTIAL_INVALID");
+  });
+
+  it("rejects a credential issued for another member's identity", async () => {
+    const c = await candidate("ai");
+    const other = await candidate("ai");
+    await expectRejected(prover.prove(ZkKind.Assignment, witness(c, { fieldCredential: other.fieldCredential }), sig), "CREDENTIAL_INVALID");
+  });
+
+  it("rejects criteria that do not match the public hash, and an unknown member", async () => {
+    const c = await candidate("ai");
+    await expectRejected(prover.prove(ZkKind.Assignment, witness(c, { criteriaFields: ["ai"] }), sig), "CRITERIA_MISMATCH");
+    await expectRejected(
+      prover.prove(ZkKind.Assignment, witness(c, { identityCommitment: ("0x" + "cd".repeat(32)) as Hex }), sig),
+      "IDENTITY_NOT_REGISTERED",
+    );
+  });
+
+  it("rejects a salt that does not match the commitment (other session / other invite)", async () => {
+    const c = await candidate("ai");
+    await expectRejected(prover.prove(ZkKind.Assignment, witness(c, { inviteSalt: ("0x" + "6b".repeat(32)) as Hex }), sig), "ASSIGNMENT_NOT_OWNED");
+    const otherSession = signals.assignment(SESSION_2, criteriaHash(fields), assignmentCommitment(SESSION, salt));
+    await expectRejected(prover.prove(ZkKind.Assignment, witness(c), otherSession), "ASSIGNMENT_NOT_OWNED");
   });
 });
 

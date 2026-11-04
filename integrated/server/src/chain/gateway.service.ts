@@ -5,7 +5,16 @@
  */
 import { Injectable } from "@nestjs/common";
 import type { Address, Hex } from "viem";
-import type { AutomaticCheckResultValue, CreateSessionAction, PublicationStatusValue, RoleValue } from "@decpub/shared";
+import type {
+  AutomaticCheckResultValue,
+  CommitAction,
+  CreateSessionAction,
+  PublicationStatusValue,
+  RevealAction,
+  RoleValue,
+  ScreeningAction,
+} from "@decpub/shared";
+import type { ReviewPhaseValue } from "@decpub/shared";
 import { ChainService, type TxReceipt } from "./chain.service.js";
 
 @Injectable()
@@ -33,7 +42,52 @@ export class GatewayService {
     return this.send("createSessionSigned", [action, signature]);
   }
 
+  /** Mengikat commitment penugasan penelaah ke pseudonim (bukti `ASSIGNMENT_OWNERSHIP`). */
+  bindAssignment(sessionId: Hex, assignmentCommitment: Hex, pseudonym: Address, proof: Hex): Promise<TxReceipt> {
+    return this.send("bindAssignment", [sessionId, assignmentCommitment, pseudonym, proof]);
+  }
+
+  screeningSigned(action: ScreeningAction, signature: Hex): Promise<TxReceipt> {
+    return this.send("screeningSigned", [action, signature]);
+  }
+
+  commitReviewSigned(action: CommitAction, signature: Hex): Promise<TxReceipt> {
+    return this.send("commitReviewSigned", [action, signature]);
+  }
+
+  revealReviewSigned(action: RevealAction, signature: Hex): Promise<TxReceipt> {
+    return this.send("revealReviewSigned", [action, signature]);
+  }
+
   // ---- aksi sistem (hanya operator)
+
+  assignEditor(sessionId: Hex, editorPseudonym: Address): Promise<TxReceipt> {
+    return this.send("assignEditor", [sessionId, editorPseudonym]);
+  }
+
+  recordEditorAssignmentProof(sessionId: Hex, editorPseudonym: Address, proofRef: Hex): Promise<TxReceipt> {
+    return this.send("recordEditorAssignmentProof", [sessionId, editorPseudonym, proofRef]);
+  }
+
+  recordReviewerCriteria(sessionId: Hex, criteriaHash: Hex, reviewerCount: number): Promise<TxReceipt> {
+    return this.send("recordReviewerCriteria", [sessionId, criteriaHash, reviewerCount]);
+  }
+
+  recordSelectionBatch(sessionId: Hex, criteriaHash: Hex, reviewerCount: number, commitments: Hex[]): Promise<TxReceipt> {
+    return this.send("recordSelectionBatch", [sessionId, criteriaHash, reviewerCount, commitments]);
+  }
+
+  batchRecordReviewerAssignmentProofs(sessionId: Hex, commitments: Hex[], inviteRefs: Hex[], proofRefs: Hex[]): Promise<TxReceipt> {
+    return this.send("batchRecordReviewerAssignmentProofs", [sessionId, commitments, inviteRefs, proofRefs]);
+  }
+
+  setReviewPhase(sessionId: Hex, phase: ReviewPhaseValue): Promise<TxReceipt> {
+    return this.send("setReviewPhase", [sessionId, phase]);
+  }
+
+  decideBatch(sessionId: Hex, batch: number, reviewerPseudonyms: Address[], additionalIfGrayZone: number): Promise<TxReceipt> {
+    return this.send("decideBatch", [sessionId, batch, reviewerPseudonyms, additionalIfGrayZone]);
+  }
 
   updateStatus(sessionId: Hex, status: PublicationStatusValue): Promise<TxReceipt> {
     return this.send("updateStatus", [sessionId, status]);

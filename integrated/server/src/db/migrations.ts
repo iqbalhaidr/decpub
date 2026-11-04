@@ -73,4 +73,40 @@ CREATE TABLE manuscripts (
 CREATE INDEX idx_manuscripts_owner ON manuscripts(owner_user_id);
 `,
   },
+  {
+    version: 2,
+    sql: `
+-- Undangan editor dan penelaah (P05-P06). Server tepercaya untuk pemetaan undangan ke orang
+-- (arsitektur bagian 3); pseudonim yang menerima undangan TIDAK disimpan di sini.
+CREATE TABLE invitations (
+  id                    TEXT PRIMARY KEY,
+  session_id            TEXT NOT NULL,
+  role                  TEXT NOT NULL CHECK (role IN ('editor','reviewer')),
+  -- 0 untuk editor, nomor batch seleksi untuk penelaah (slot pseudonim, keputusan B3)
+  slot                  INTEGER NOT NULL,
+  user_id               TEXT NOT NULL REFERENCES users(id),
+  invite_salt           TEXT NOT NULL,
+  assignment_commitment TEXT NOT NULL,
+  criteria_hash         TEXT NOT NULL,
+  criteria_fields       TEXT NOT NULL,
+  proof_ref             TEXT NOT NULL,
+  proof_uri             TEXT NOT NULL,
+  created_at            TEXT NOT NULL,
+  accepted_at           TEXT,
+  UNIQUE (session_id, assignment_commitment)
+);
+CREATE INDEX idx_invitations_user ON invitations(user_id);
+CREATE INDEX idx_invitations_session ON invitations(session_id, role, slot);
+
+-- Kriteria penelaah yang ditetapkan editor, per revisi sesi. Sumber untuk seleksi batch berikutnya.
+CREATE TABLE session_criteria (
+  session_id    TEXT NOT NULL,
+  revision      INTEGER NOT NULL,
+  fields        TEXT NOT NULL,
+  criteria_hash TEXT NOT NULL,
+  recorded_at   TEXT NOT NULL,
+  PRIMARY KEY (session_id, revision)
+);
+`,
+  },
 ];

@@ -43,6 +43,10 @@ export interface AppConfig {
   autoAdvance: boolean;
   seedDemoAccounts: boolean;
   maxUploadBytes: number;
+  /** Blok awal pembacaan log (audit trail). Isi dengan blok deploy pada jaringan publik. */
+  logFromBlock: number;
+  /** Lebar jendela `eth_getLogs`; RPC publik membatasi rentang. */
+  logWindow: number;
 }
 
 const bool = (v: string | undefined, dflt: boolean) => (v === undefined || v === "" ? dflt : /^(1|true|yes)$/i.test(v));
@@ -96,5 +100,7 @@ export function loadConfig(env: Env = process.env, cwd = process.cwd()): AppConf
     autoAdvance: bool(env.AUTO_ADVANCE, true),
     seedDemoAccounts: bool(env.SEED_DEMO_ACCOUNTS, isLocalNetwork),
     maxUploadBytes: int(env.MAX_UPLOAD_BYTES, 20 * 1024 * 1024),
+    logFromBlock: int(env.LOG_FROM_BLOCK, 0),
+    logWindow: int(env.LOG_WINDOW, 5000),
   };
 }

@@ -44,6 +44,18 @@ export const AUTOMATIC_CHECK_RESULT_NAMES = ["None", "Pass", "Incomplete", "Reje
 export const DeskDecision = { None: 0, ProceedToReviewerSelection: 1, ReviseBeforeReview: 2, DeskReject: 3 } as const;
 export const DESK_DECISION_NAMES = ["None", "ProceedToReviewerSelection", "ReviseBeforeReview", "DeskReject"] as const;
 
+/** Sama dengan `IReviewSubmissions.ReviewPhase`. */
+export const ReviewPhase = { None: 0, Commit: 1, Reveal: 2, Closed: 3 } as const;
+export type ReviewPhaseValue = (typeof ReviewPhase)[keyof typeof ReviewPhase];
+export const REVIEW_PHASE_NAMES = ["None", "Commit", "Reveal", "Closed"] as const;
+
+/** Sama dengan `IReviewSubmissions.ReviewRecommendation`. */
+export const RECOMMENDATION_NAMES = ["None", "Reject", "MajorRevision", "MinorRevision", "AcceptAsIs"] as const;
+
+/** Sama dengan `IReviewDecisions.DecisionOutcome`. */
+export const DecisionOutcome = { None: 0, Reject: 1, MajorRevision: 2, MinorRevision: 3, AcceptAsIs: 4 } as const;
+export const DECISION_OUTCOME_NAMES = ["None", "Reject", "MajorRevision", "MinorRevision", "AcceptAsIs"] as const;
+
 export function statusName(value: number): string {
   return PUBLICATION_STATUS_NAMES[value] ?? "Unknown";
 }

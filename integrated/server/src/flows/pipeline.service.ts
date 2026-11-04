@@ -9,7 +9,7 @@
  *               Incomplete                         -> hanya bila `recheck` (P03 ulang)
  *             Status on-chain adalah sumber kebenaran, jadi `advance` aman dipanggil ulang.
  *
- * Refund APC untuk Reject/desk reject menyusul di M7 (`ESCROW_REQUIRED`).
+ * Setelah P04, `ProgressService` mengundang editor (P05). Refund APC untuk Reject/desk reject menyusul di M7 (`ESCROW_REQUIRED`).
  */
 import { BadRequestException, ConflictException, Inject, Injectable, Logger, NotFoundException } from "@nestjs/common";
 import type { Hex } from "viem";
@@ -22,6 +22,7 @@ import { AnonymizationService } from "../manuscripts/anonymization.service.js";
 import { ChecksService, type CheckReport } from "../manuscripts/checks.service.js";
 import { ManuscriptsRepository, type ManuscriptRow } from "../manuscripts/manuscripts.repository.js";
 import { PUBLIC_STORAGE } from "../storage/storage.module.js";
+import { ProgressService } from "./progress.service.js";
 
 export interface SignedSubmission {
   action: Omit<CreateSessionAction, "nonce"> & { nonce: string };
@@ -36,6 +37,8 @@ export interface AdvanceResult {
   sessionId: Hex;
   steps: StepResult[];
   status: string;
+  /** Catatan langkah sistem lanjutan yang tertunda (mis. belum ada editor). Tidak menggagalkan pengajuan. */
+  notes?: string[];
 }
 
 @Injectable()
@@ -52,6 +55,7 @@ export class PipelineService {
     private readonly checks: ChecksService,
     private readonly anonymization: AnonymizationService,
     private readonly manuscripts: ManuscriptsRepository,
+    private readonly progress: ProgressService,
   ) {}
 
   /** Akses naskah: hanya pemilik. */
@@ -116,7 +120,20 @@ export class PipelineService {
           break;
         }
       }
-      return { sessionId, steps, status: (await this.reader.getSession(sessionId)).status };
+      // Setelah P04, sistem mengundang editor (P05). Kegagalan di sini (mis. belum ada editor terdaftar)
+      // tidak boleh menggagalkan pengajuan penulis: P01-P04 sudah sah. Langkah diulang lewat
+      // `POST /system/sessions/:id/progress`.
+      const notes: string[] = [];
+      if (steps.some((s) => s.step === "P04")) {
+        try {
+          await this.progress.advance(sessionId);
+        } catch (e) {
+          const msg = (e as { response?: { message?: string } }).response?.message ?? (e as Error).message;
+          notes.push(`P05 tertunda: ${msg}`);
+          this.log.warn(`Sesi ${sessionId}: langkah P05 tertunda (${msg})`);
+        }
+      }
+      return { sessionId, steps, status: (await this.reader.getSession(sessionId)).status, ...(notes.length ? { notes } : {}) };
     } finally {
       this.running.delete(m.id);
     }

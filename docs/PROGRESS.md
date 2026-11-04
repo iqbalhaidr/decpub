@@ -4,7 +4,7 @@ Diperbarui di akhir setiap sesi.
 
 ## Terakhir diperbarui
 
-2026-11-04, sesi M3.
+2026-11-04, sesi M4.
 
 ## Selesai
 
@@ -46,9 +46,18 @@ Diperbarui di akhir setiap sesi.
   - **Perbaikan atas Ciko yang dikerjakan:** `result` P03 dari server (bukan klien); manifes (memuat nama) hanya untuk pemilik; label peran DTO: `0=Author, 1=Reviewer, 2=Editor` (Ciko menulis Editor=1); `metadataHash` bergaram; `ESCROW_REQUIRED=false`.
   - Skrip bersama untuk M4+ dan M12: `scripts/lib/{services,api,member,chain-scan}.ts` (menyalakan layanan sebagai proses nyata, klien HTTP, perilaku klien/browser memakai `packages/shared`, pemindai kebocoran ledger).
 
+- **M4 selesai.** Semua kriteria terpenuhi dan dijalankan sendiri (`npm run demo:m4`, node Hardhat sungguhan, proses nyata, tanpa mock; dijalankan 4 kali berturut-turut karena seleksinya acak, semuanya lulus, 48 pemeriksaan):
+  - **Alur.** Setelah P04 sistem mengundang satu editor acak (terdaftar, bidang = kategori jurnal). Editor menerima dengan pseudonim Editor lewat bukti `ASSIGNMENT_OWNERSHIP` (`assignEditor` + `recordEditorAssignmentProof`), memutus lewat `screeningSigned` beserta laporan (publik ke storage, lengkap ke storage privat). `Proceed` mencatat kriteria (`recordReviewerCriteria`) dan sistem memilih 3 penelaah acak per bidang (bukan penulis naskah, belum diundang di sesi itu), `recordSelectionBatch` + `batchRecordReviewerAssignmentProofs`. Penelaah membuat pseudonim Reviewer (slot = nomor batch) dan `bindAssignment`. Setelah semua mengikat: `updateStatus(9)` (endpoint yang tidak ada di Ciko) + fase Commit. Setelah semua commit: Reveal. Setelah semua reveal: Closed, `decideBatch` hanya atas pseudonim yang reveal (D3), `Accepted`, lalu `Published`.
+  - **Server** (`server/src`): `selection/` (`SelectionService`, `InvitationsRepository`, `InviteChannel` simulasi di SQLite, migrasi v2: `invitations`, `session_criteria`), `flows/progress.service.ts` (penggerak langkah sistem: idempoten, diserialkan per sesi, membaca chain sebagai sumber kebenaran), `flows/editorial.service.ts`, `flows/reviews.service.ts`, `flows/assignments.controller.ts` (`GET /invitations`, `POST /flows/assignments/{editor,bind}`, `/flows/editorial-screening`, `/flows/reviews/{commit,reveal}`, `POST /system/sessions/:id/progress`), `public/audit-trail.service.ts` (kronologi dari log kontrak, jendela blok), `public/projection.service.ts`. `GatewayService` dan `SessionReader` diperluas.
+  - **`packages/shared`**: `selection.ts` (`criteriaHash`, `inviteRef`, `proofRefOf`, konstanta D2), `documents.ts` (dokumen telaah dan laporan editorial yang deterministik, sama di klien dan server), `ReviewPhase`/`DecisionOutcome`/nama rekomendasi di `status.ts`, `signals.assignment`.
+  - **zk-sim**: pemeriksa `ASSIGNMENT` (kriteria cocok hash publik, anggota terdaftar, kredensial bidang sah dari penerbit untuk bidang dalam kriteria, salt cocok commitment). Tidak ada lagi jenis bukti yang 501 selain NoteBind/NoteRefund/ReputationBucket/ReputationClaim/SelectiveDisclosure.
+  - **Hasil `demo:m4`:** editor dan 3 penelaah terpilih dari pool terdaftar; penulis (akun penelaah) dikecualikan; 4 berkas bukti penugasan di storage punya keccak256 = `proofRef` on-chain dan lolos `SimulatedZkVerifier.verify`; ditolak: editor lain merebut undangan (`ASSIGNMENT_NOT_OWNED`), bukti palsu, penerimaan ulang, laporan dimanipulasi, pseudonim bukan editor, Proceed tanpa bidang, penelaah tak diundang merebut penugasan, pengikatan ulang ke pseudonim lain (`AssignmentAlreadyBound`), commit sebelum fase Commit, commit ganda, reveal sebelum semua commit, reveal dengan isi/rekomendasi berbeda (isi palsu tidak pernah diunggah). Audit trail: 39 event urut menurut blok dan indeks log, jejak status `UnderAnonymization → UnderEditorialScreening → AssigningReviewers → UnderReview → Accepted → Published`. Pemindaian 30 transaksi: tanpa commitment identitas, alamat akun permanen, secret, salt undangan, nama, atau surel.
+  - **"Server tidak pernah menerima rekomendasi sebelum reveal"** dibuktikan tiga lapis: (1) DTO commit hanya memuat `commitHash` dan `ValidationPipe` membuang field lain (tes `ReviewsService`), (2) `Api.trace` pada demo merekam isi semua permintaan klien: permintaan commit hanya berkunci `action,signature`, tanpa `recommendation`/`reviewNonce`/teks, (3) reveal ditolak 409 selama fase belum Reveal.
+  - **Tes:** `npm test` lulus seluruhnya: kontrak 191, shared 22 (+7 `documents.test.ts`), storage-sim 19, zk-sim 19 (+6 ASSIGNMENT), **server 57** (+26: `p05-p07.test.ts` 23 untuk seleksi, driver sistem, commit/reveal, editorial; +3 HTTP). `npm run typecheck` bersih. Regresi `demo:m1`, `demo:m2`, `demo:m3`, `check-wiring` (60/60) tetap lulus.
+
 ## Tersisa
 
-Milestone berikutnya: **M4, P05-P08 jalur diterima** (seleksi editor/penelaah, commit-reveal, `decideBatch`, `Published`, audit trail dari event). M4 sampai M13 belum dikerjakan.
+Milestone berikutnya: **M5, revisi, zona abu-abu, penolakan** (Minor/Major lewat `recordRevisionSigned`, batch dan pseudonim baru, zona abu-abu +2 penelaah, desk reject/revisi desk, penelaah yang tidak commit/reveal). M5 sampai M13 belum dikerjakan.
 
 
 ## Temuan di lapangan (M0)
@@ -84,7 +93,7 @@ Tidak ada yang bertentangan dengan `arsitektur.md` atau `analisis/`. Keputusan k
 - **"Secret salah ditolak on-chain" ditafsirkan** sebagai: zk-sim menolak membuat bukti (`IDENTITY_NOT_REGISTERED`), dan bukti palsu yang ditandatangani kunci lain ditolak chain (`InvalidProof`). Pada simulasi, chain tidak bisa melihat secret; hanya tanda tangan attestor yang diperiksa. Pemeriksaan secret terjadi di attestor.
 - **Gateway memeriksa nullifier sebelum bukti.** Bukti yang sah tetapi nullifier-nya sudah dipakai ditolak `NullifierAlreadyUsed`, bukan `InvalidProof`. Itu urutan yang dipilih; demo menyiasati dengan nullifier segar untuk kasus "peran salah" dan "sesi salah".
 - **Kunci attestor dan penerbit di lokal diturunkan dari label di kode** (`devPrivateKey`) sehingga `npm run demo` jalan tanpa konfigurasi. Kunci itu publik, hanya sah di `NETWORK=localhost`. `loadPrivateKey` melempar galat bila `NETWORK` bukan lokal dan env kosong. Wajib diisi untuk M13.
-- **Jenis bukti `ASSIGNMENT` (2) belum punya pemeriksa maupun fungsi gateway.** Arsitektur 8.2 menyebutnya untuk P05/P06, tetapi 8.1 tidak memetakan fungsi gateway mana pun ke jenis itu. Dibiarkan 501 sampai M4 (seleksi) agar konteksnya jelas.
+- **Jenis bukti `ASSIGNMENT` (2) belum punya pemeriksa maupun fungsi gateway.** Arsitektur 8.2 menyebutnya untuk P05/P06, tetapi 8.1 tidak memetakan fungsi gateway mana pun ke jenis itu. Dibiarkan 501 sampai M4 (seleksi) agar konteksnya jelas. (M4: terisi, bukti dibuat server; lihat temuan M4.)
 - **Klaim "ketaktertautan dibuktikan" dibatasi.** Pemindaian kebocoran membuktikan sistem baru bersih. Kode Ciko asli tidak dijalankan untuk memperlihatkan bocornya (temuan arsitektur bagian 14 butir 1 masih hasil baca kode).
 - **Jebakan viem:** `getBlockNumber()` di-cache sekitar satu interval polling, sehingga pemindaian blok di demo sempat memindai 0 transaksi dan lulus palsu. Kini `cacheTime: 0`. Skrip lain yang membaca tinggi blok perlu memperhatikan ini.
 - Tes Hardhat bisa mengimpor `@decpub/shared` (TS workspace) tanpa langkah build, jadi tes kontrak, zk-sim, dan demo memakai kode kripto yang sama dengan yang nanti dipakai frontend.
@@ -106,12 +115,36 @@ Tidak ada yang bertentangan dengan `arsitektur.md` atau `analisis/` pada tingkat
 - `node:sqlite` bekerja di Node 24 (peringatan "experimental" saat start); risiko "`node:sqlite` di NestJS" (bagian 13) tertutup, `better-sqlite3` tidak diperlukan.
 - Proses uji `pkill -f` pernah mematikan shell sendiri; hentikan layanan lewat PID.
 
+## Temuan di lapangan (M4)
+
+Tidak ada yang bertentangan dengan `arsitektur.md` atau `analisis/` pada tingkat desain. Keputusan kecil yang saya ambil sendiri, dan hal yang perlu keputusan Anda (mohon dikoreksi):
+
+**Perlu keputusan Anda (tidak menghalangi M5):**
+
+- **Server dapat menautkan pseudonim penelaah/editor ke orang saat menerima undangan.** Pengikatan (`/flows/assignments/bind`, `/editor`) lewat relayer: server melihat pasangan (commitment penugasan, pseudonim) sambil memproses, dan commitment sudah dipetakan ke akun lewat undangan. Server **tidak menyimpan** pseudonim (hanya chain yang menyimpannya) dan endpoint tanpa JWT, tetapi proses server tetap bisa mencatatnya. Ini konsisten dengan model Ciko (server tepercaya untuk seleksi, Lap. hlm. 95), tetapi lebih kuat daripada baris matriks 8.3 ("Server: Ya, untuk undangan") yang tidak menyebut tautan pseudonim. Opsi: (a) terima sebagai batasan dan tulis di bagian 13, (b) klien mengirim transaksi pengikatan sendiri (butuh gas, dompet baru), (c) campur/tunda pengikatan. Saya pilih (a) sementara.
+- **Pembuatan pseudonim tidak dibatasi undangan.** Siapa pun dengan kredensial peran sah bisa membuat pseudonim Editor/Reviewer di sesi mana pun (mereka tidak bisa ditugaskan tanpa salt undangan, tetapi event `EphemeralAccountCreated` tercatat). Demo menunjukkannya: dua pseudonim Editor muncul di audit trail, satu milik percobaan merebut undangan. Memberi batas (mis. hanya setelah undangan diterima) berarti mengubah `ActionGateway`; belum saya lakukan.
+
+**Keputusan kecil yang saya ambil:**
+
+- **Bukti `ASSIGNMENT` dibuat server, bukan klien.** Witness-nya hasil seleksi server (sesuai tabel 8.2). Bukti diunggah ke storage publik; `proofRef` on-chain = keccak256 berkas. Kontrak Ciko hanya menyimpan `proofRef` dan tidak memverifikasinya, jadi pemeriksaan dilakukan publik lewat `SimulatedZkVerifier.verify` (diuji di demo). `GET /public/sessions/:id/assignment-proofs` memetakan commitment ke berkas bukti, tanpa identitas.
+- **Editor juga memakai `ASSIGNMENT_OWNERSHIP`** untuk menerima undangan (tabel 8.2 hanya menyebutnya untuk P06). Server memverifikasi buktinya lewat `verify` on-chain (view) sebelum `assignEditor`.
+- **`recordReviewerCriteria` dipanggil setelah putusan Proceed** (status sudah `AssigningReviewers`, masih diizinkan kontrak). Kriteria berasal dari laporan editor yang hash-nya ditandatangani, jadi server tidak bisa mengubahnya diam-diam. Bawaan bila editor tidak mengisi: bidang kategori jurnal.
+- **Laporan editorial dua versi**: publik (`anonymousEditorialReportHash`, CID di storage) dan lengkap dengan `privateNotes` (`editorialReportHash`, hanya di storage privat terenkripsi). Isi telaah juga dokumen deterministik tanpa rekomendasi; rekomendasi hanya ada di reveal.
+- **Reveal: isi telaah diunggah server, bukan klien**, setelah memeriksa fase Reveal, kecocokan dengan commit, dan hash/CID isi. Isi palsu atau sebelum waktunya tidak pernah menyentuh storage publik. Teks ini juga yang dibaca QoS di M7.
+- **Langkah sistem tertunda tidak menggagalkan pengajuan.** Sebelumnya `demo:m3` gagal 409 saat belum ada editor terdaftar. Sekarang `AdvanceResult.notes` memuat "P05 tertunda: ..." dan sesi tetap sah di `UnderEditorialScreening`. Tidak ada percobaan ulang otomatis bila editor baru mendaftar; gunakan `POST /system/sessions/:id/progress`.
+- **`Accepted` langsung dilanjutkan ke `Published`** oleh `ProgressService`. M8 akan menyisipkan DOI, `recordFinal`, dan `recordDisclosure` sebelum/sekitar `updateStatus(12)`; titik sambungnya `ProgressService.publish`.
+- **Audit trail membaca log dari `LOG_FROM_BLOCK` ke ujung rantai tiap permintaan** (jendela `LOG_WINDOW`, tanpa cache log). Cukup untuk lokal; di Sepolia isi `LOG_FROM_BLOCK` dengan blok deploy dan pertimbangkan cache (M13).
+- **Proyeksi publik dibatasi per fase**: isi dan rekomendasi telaah tampil di `/public/sessions/:id` hanya setelah fase `Closed`. Event on-chain tetap publik di ledger (tak bisa dibatasi), jadi ini batas proyeksi API, bukan jaminan kerahasiaan.
+- **Percobaan reveal dini yang disengaja pada demo** mengirim rekomendasi ke server (ditolak 409). Itu perilaku penyerang/klien salah, bukan klien yang benar, jadi dikecualikan dari analisis "isi permintaan" di demo; bukti server menolaknya ada di tes `ReviewsService`.
+- **`pendingReviews` pada klien** (data pembukaan commit) disimpan hanya setelah commit diterima. Bug awal di skrip demo: commit ganda yang ditolak menimpa nonce yang sah. Frontend (M11) harus berperilaku sama dan menyimpan data ini di penyimpanan lokal browser.
+
 ## Masalah terbuka
 
 - Kode Hugo dan Roihan belum pernah dijalankan (baru Ciko di M0). Tes Hugo dijalankan saat M6.
-- Daftar `decideBatch` dan urutan fase telaah masih dijaga operator (batasan Ciko, arsitektur bagian 13). Gateway meneruskan apa adanya.
+- Daftar `decideBatch` dan urutan fase telaah masih dijaga operator (batasan Ciko, arsitektur bagian 13). Gateway meneruskan apa adanya. Sejak M4 server menegakkan "Reveal setelah semua commit" dan "hanya yang reveal dihitung", tetapi kontrak tidak.
+- Penelaah yang tidak mengikat, tidak commit, atau tidak reveal menahan sesi tanpa batas waktu (M5/M7: pengganti, timeout, refund). Editor yang tidak merespons juga belum punya jalur pengganti.
+- Dua keputusan terbuka di "Temuan di lapangan (M4)": tautan pseudonim di server saat pengikatan, dan pembuatan pseudonim yang tak dibatasi undangan.
 - `npm install` melaporkan kerentanan pada rantai dev; belum diperiksa (sama seperti M0).
-- Pemeriksa `ASSIGNMENT` ditunda ke M4 (lihat temuan M2).
 - Frontend/zk-sim: CORS zk-sim belum diatur (M10). Kebijakan bobot jurnal tersimpan tetapi belum dikunci ke sesi (M7). Refund APC pada Reject/Incomplete-ditutup menunggu M6/M7.
 - Kompatibilitas pragma `^0.8.24` kontrak Hugo/Roihan dengan solc 0.8.28 belum diuji (M6, M8).
 - M13 butuh RPC Sepolia, kunci deployer baru, dan ETH testnet dari pengguna.
@@ -133,12 +166,13 @@ npm run demo:m1          # demo/regresi M1
 npm run zk               # M2: zk-sim di http://127.0.0.1:8082, tetap hidup
 npm run test:zk          # tes M2 (zk-sim)
 npm run test:shared      # tes kripto klien
-npm test                 # semua tes (kontrak, storage, zk-sim)
+npm test                 # semua tes (kontrak, shared, storage-sim, zk-sim, server)
 npm run demo:m2          # demo/regresi M2 (butuh chain + deploy:local; zk-sim nyala sendiri)
 
 npm run server           # M3: server di http://127.0.0.1:3001 (Swagger /api); butuh chain, deploy, storage, zk
 npm run test:server      # tes server
 npm run demo:m3          # demo/regresi M3 (butuh chain + deploy:local; menyalakan storage, zk, server sendiri)
+npm run demo:m4          # demo/regresi M4: P05-P08 jalur diterima sampai Published (prasyarat sama)
 ```
 
 Target akhir: `cd integrated && npm install && npm run demo`.

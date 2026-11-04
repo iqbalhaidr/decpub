@@ -6,3 +6,5 @@ export * from "./zk.js";
 export * from "./actions.js";
 export * from "./abis.generated.js";
 export * from "./status.js";
+export * from "./selection.js";
+export * from "./documents.js";

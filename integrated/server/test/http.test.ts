@@ -203,3 +203,31 @@ describe("naskah", () => {
     assert.match(JSON.stringify(res.body), /anonymizedManuscriptHash/);
   });
 });
+
+describe("P05-P07: akses dan validasi permintaan", () => {
+  const SID = "0x" + "11".repeat(32);
+  it("kotak masuk undangan: hanya editor dan penelaah yang login", async () => {
+    assert.equal((await call("/invitations")).status, 401);
+    assert.equal((await call("/invitations", { token: await login("author1@mail.com", "author1") })).status, 403);
+    assert.equal((await call("/invitations", { token: await login("admin@desci.local", "admin123") })).status, 403);
+    const ed = await call("/invitations", { token: await login("editor.ai@desci.local", "editor123") });
+    assert.equal(ed.status, 200);
+    assert.deepEqual(ed.body, []);
+    assert.deepEqual((await call("/invitations", { token: await login("rev1@mail.com", "rev1") })).body, []);
+  });
+  it("aksi bertanda tangan tidak butuh JWT, tetapi isinya divalidasi", async () => {
+    const bad = await call("/flows/reviews/commit", { json: { action: { sessionId: SID, pseudonym: "bukan-alamat", assignmentCommitment: SID, commitHash: SID, nonce: "0" }, signature: "0x12" } });
+    assert.equal(bad.status, 400);
+    const noText = await call("/flows/reviews/reveal", { json: { action: { sessionId: SID, pseudonym: "0x" + "11".repeat(20), assignmentCommitment: SID, recommendation: 9, reviewHash: SID, reviewURI: "ipfs://x", reviewNonce: SID, nonce: "0" }, signature: "0x12" } });
+    assert.equal(noText.status, 400);
+    assert.match(JSON.stringify(noText.body), /recommendation|text/);
+    const badDecision = await call("/flows/editorial-screening", { json: { action: { sessionId: SID, pseudonym: "0x" + "11".repeat(20), editorialReportHash: SID, anonymousEditorialReportHash: SID, anonymousEditorialReportURI: "ipfs://x", decision: 0, nonce: "0" }, signature: "0x12", report: { decision: 0, comments: "x", reviewerFields: [] } } });
+    assert.equal(badDecision.status, 400);
+  });
+  it("identifier sesi yang tidak sah ditolak di endpoint publik dan sistem", async () => {
+    for (const path of ["/public/sessions/xyz", "/public/sessions/xyz/audit-trail", "/public/sessions/xyz/assignment-proofs"]) {
+      assert.equal((await call(path)).status, 404, path);
+    }
+    assert.equal((await call("/system/sessions/xyz/progress", { method: "POST" })).status, 404);
+  });
+});

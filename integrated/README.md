@@ -4,15 +4,16 @@ Integrasi tiga tugas akhir (Ciko, Hugo, Roihan) menjadi satu sistem publikasi il
 anonim (triple blind) dengan insentif penelaah. Rancangan: `../docs/arsitektur.md`.
 Urutan kerja: `../docs/PLAN.md`. Status: `../docs/PROGRESS.md`.
 
-**Status saat ini: M3 selesai.** Kontrak Ciko (M0), storage simulator (M1), serta ZK simulasi,
-`ActionGateway`, dan pseudonim tanpa tautan (M2), serta backend P01-P04 (M3) berjalan.
+**Status saat ini: M4 selesai.** Kontrak Ciko (M0), storage simulator (M1), ZK simulasi,
+`ActionGateway`, dan pseudonim tanpa tautan (M2), backend P01-P04 (M3), serta P05-P08 jalur diterima
+sampai `Published` (M4) berjalan. Insentif Hugo, revisi, dan frontend menyusul (M5 dst).
 Target akhir: `npm install && npm run demo`.
 
 ## Prasyarat
 
 - Node >= 22 (diuji di Node 24.11.0), npm 11.
 
-## Menjalankan (M0 sampai M3)
+## Menjalankan (M0 sampai M4)
 
 ```bash
 cd integrated
@@ -34,6 +35,7 @@ npm run typecheck
 npm run demo:m1          # demo/regresi M1: mandiri, memakai data sementara
 npm run demo:m2          # demo/regresi M2: butuh `chain` + `deploy:local`, zk-sim dinyalakan sendiri
 npm run demo:m3          # demo/regresi M3: butuh `chain` + `deploy:local`; storage, zk, dan server dinyalakan sendiri sebagai proses nyata
+npm run demo:m4          # demo/regresi M4: P05-P08 jalur diterima sampai Published, audit trail dari event (prasyarat sama)
 ```
 
 ### Storage publik (M1)
@@ -116,3 +118,27 @@ Akun demo (password publik, hanya lokal): `admin@desci.local`/`admin123`; editor
 (`author1`..). Matikan dengan `SEED_DEMO_ACCOUNTS=false`.
 
 `[SIMULASI]` plagiarisme: tumpang tindih 5-gram kata terhadap `server/corpus/*.txt`, ambang 30. Pengganti: `PlagiarismProvider`.
+
+### Editor, penelaah, dan keputusan (M4)
+
+Semua aksi manusia di bawah memakai pseudonim (kunci diturunkan dari secret di klien) dan, kecuali kotak masuk,
+**tanpa JWT**. Langkah sistem dijalankan `ProgressService` (idempoten, diserialkan per sesi) setiap kali sebuah aksi masuk;
+`POST /system/sessions/:id/progress` menjalankannya manual (berguna bila `AUTO_ADVANCE=false` atau ada langkah tertunda).
+
+1. Setelah P04 sistem mengundang **satu editor acak** yang terdaftar dan sebidang dengan kategori jurnal.
+   `GET /invitations` (JWT editor/penelaah) menampilkan undangan beserta `inviteSalt` (rahasia penerima) dan tautan naskah anonim.
+2. Editor membuat pseudonim Editor (zk-sim), lalu `POST /flows/assignments/editor` dengan bukti kepemilikan undangan
+   (`ASSIGNMENT_OWNERSHIP`, witness: salt). Sistem memanggil `assignEditor` dan mencatat bukti penugasan.
+3. `POST /flows/editorial-screening`: putusan bertanda tangan pseudonim + laporan (komentar, bidang penelaah, catatan internal).
+   Hash laporan diperiksa server; yang publik diunggah ke storage, yang lengkap ke storage privat. `Proceed` mencatat kriteria
+   dan sistem memilih **3 penelaah acak** per bidang (bukan penulis naskah, belum pernah diundang di sesi itu), mencatat batch
+   dan bukti penugasan (`ASSIGNMENT`, simulasi; berkas bukti di storage, `proofRef` = keccak256 berkas).
+4. Penelaah membuat pseudonim Reviewer (slot = nomor batch) lalu `POST /flows/assignments/bind`. Setelah semua mengikat: `UnderReview`, fase Commit.
+5. `POST /flows/reviews/commit`: hanya `commitHash` (dihitung klien). Setelah semua commit: fase Reveal.
+   `POST /flows/reviews/reveal`: pembukaan + isi telaah; server mencocokkan dengan commit dan hash/CID **sebelum** mengunggah.
+6. Setelah semua reveal: fase Closed, `decideBatch` (hanya pseudonim yang reveal), `Accepted` lalu `Published`.
+
+Publik: `GET /public/sessions/:id` (proyeksi; isi telaah tampil setelah fase Closed), `/audit-trail` (kronologi event on-chain),
+`/assignment-proofs` (bukti penugasan yang bisa diperiksa lewat `SimulatedZkVerifier.verify`).
+
+Batasan M4: hanya jalur Accept; Minor/Major/Reject/zona abu-abu dan penelaah yang tidak commit/reveal menunggu M5.

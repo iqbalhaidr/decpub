@@ -6,18 +6,31 @@
  */
 import type { Address, Hex } from "viem";
 import {
+  DeskDecision,
   HttpZkProver,
   Role,
   ZkKind,
+  computeCommitHash,
+  createStorageProvider,
   deriveEphemeral,
+  editorialReportDocuments,
+  editorialReportHashes,
   generateSecret,
   gatewayDomain,
   identityCommitment,
   permanentAccountAddress,
+  reviewDocument,
+  signCommit,
   signCreateSession,
+  signReveal,
+  signScreening,
   signals,
+  type RecommendationValue,
   type RoleValue,
+  type StorageProvider,
 } from "@decpub/shared";
+import { keccak256 } from "viem";
+import { randomBytes } from "node:crypto";
 import { Api } from "./api.js";
 
 export interface Credentials {
@@ -90,6 +103,151 @@ export class Member {
     return { ...d, tx, proof };
   }
 
+  private storageProvider?: StorageProvider;
+
+  /** Storage publik, dibangun dari `/config` server seperti yang akan dilakukan browser. */
+  async storage(): Promise<StorageProvider> {
+    if (!this.storageProvider) {
+      const cfg = await new Api(this.api.base).get<{ storage: { apiUrl: string; gatewayUrl: string } }>("/config");
+      this.storageProvider = createStorageProvider(cfg.storage);
+    }
+    return this.storageProvider;
+  }
+
+  private anon(): Api {
+    return new Api(this.api.base); // tanpa token: aksi pseudonim tidak boleh tertaut ke akun
+  }
+
+  private async nonceOf(pseudonym: Address): Promise<bigint> {
+    return BigInt((await this.anon().get<{ nonce: string }>(`/flows/nonce/${pseudonym}`)).nonce);
+  }
+
+  private signer(privateKey: Hex) {
+    return { privateKey, chainId: this.chainId, gateway: this.gateway };
+  }
+
+  // ------------------------------------------------------------ P05-P07 (editor dan penelaah)
+
+  /** Kotak masuk undangan akun ini (JWT). */
+  inbox(): Promise<Invite[]> {
+    return this.api.get<Invite[]>("/invitations");
+  }
+
+  /** Membuktikan kepemilikan undangan untuk pseudonim `ps` (witness: salt undangan). */
+  private async ownershipProof(invite: Invite, pseudonym: Address) {
+    return this.prover.prove(
+      ZkKind.AssignmentOwnership,
+      { inviteSalt: invite.inviteSalt },
+      signals.assignmentOwnership(invite.sessionId, invite.assignmentCommitment, pseudonym),
+    );
+  }
+
+  /** Editor menerima undangan: pseudonim Editor, bukti kepemilikan, lalu penugasan. */
+  async acceptEditorInvite(invite: Invite) {
+    const ps = await this.createPseudonym(invite.sessionId, Role.Editor, 0);
+    const proof = await this.ownershipProof(invite, ps.pseudonym);
+    const accepted = await this.anon().post("/flows/assignments/editor", {
+      sessionId: invite.sessionId,
+      assignmentCommitment: invite.assignmentCommitment,
+      pseudonym: ps.pseudonym,
+      proof: proof.proof,
+    });
+    return { pseudonym: ps, accepted };
+  }
+
+  /** Penelaah menerima undangan: pseudonim Reviewer (slot = nomor batch), bukti, lalu pengikatan. */
+  async acceptReviewerInvite(invite: Invite) {
+    const ps = await this.createPseudonym(invite.sessionId, Role.Reviewer, invite.slot);
+    const proof = await this.ownershipProof(invite, ps.pseudonym);
+    const bound = await this.anon().post("/flows/assignments/bind", {
+      sessionId: invite.sessionId,
+      assignmentCommitment: invite.assignmentCommitment,
+      pseudonym: ps.pseudonym,
+      proof: proof.proof,
+    });
+    return { pseudonym: ps, bound };
+  }
+
+  /** Editor mengirim putusan penyaringan bertanda tangan pseudonim Editor. */
+  async screen(
+    sessionId: Hex,
+    r: { decision: number; comments: string; reviewerFields: string[]; privateNotes?: string },
+    opts: { tamper?: (body: Record<string, any>) => void } = {},
+  ) {
+    const ps = deriveEphemeral(this.secret, sessionId, Role.Editor, 0);
+    const storage = await this.storage();
+    const sess = await new Api(this.api.base).get<{ session: { revisionCount: number } }>(`/public/sessions/${sessionId}`);
+    const input = { sessionId, revision: sess.session.revisionCount, ...r };
+    const { publicBytes } = editorialReportDocuments(input);
+    const hashes = editorialReportHashes(input);
+    const nonce = await this.nonceOf(ps.pseudonym);
+    const action = {
+      sessionId,
+      pseudonym: ps.pseudonym,
+      ...hashes,
+      anonymousEditorialReportURI: `ipfs://${await storage.cidOf(publicBytes)}`,
+      decision: r.decision,
+      nonce,
+    };
+    const signature = await signScreening(this.signer(ps.privateKey), action);
+    const body: Record<string, any> = {
+      action: { ...action, nonce: nonce.toString() },
+      signature,
+      report: { decision: r.decision, comments: r.comments, reviewerFields: r.reviewerFields, privateNotes: r.privateNotes },
+    };
+    opts.tamper?.(body);
+    return this.anon().post("/flows/editorial-screening", body);
+  }
+
+  /** Data commit yang hanya ada di klien sampai reveal. */
+  private pendingReviews = new Map<string, PendingReview>();
+
+  /**
+   * Penelaah membuat commit: dokumen telaah, hash/CID, nonce acak, dan `commitHash` dihitung di
+   * KLIEN. Yang dikirim ke server hanya `commitHash` bertanda tangan.
+   */
+  async commitReview(invite: Invite, recommendation: RecommendationValue, text: string) {
+    const ps = deriveEphemeral(this.secret, invite.sessionId, Role.Reviewer, invite.slot);
+    const storage = await this.storage();
+    const bytes = reviewDocument(invite.sessionId, text);
+    const reviewHash = keccak256(bytes);
+    const reviewURI = `ipfs://${await storage.cidOf(bytes)}`;
+    const reviewNonce = ("0x" + randomBytes(32).toString("hex")) as Hex;
+    const commitHash = computeCommitHash({ sessionId: invite.sessionId, pseudonym: ps.pseudonym, recommendation, reviewHash, reviewURI, nonce: reviewNonce });
+    const nonce = await this.nonceOf(ps.pseudonym);
+    const action = { sessionId: invite.sessionId, pseudonym: ps.pseudonym, assignmentCommitment: invite.assignmentCommitment, commitHash, nonce };
+    const signature = await signCommit(this.signer(ps.privateKey), action);
+    const res = await this.anon().post("/flows/reviews/commit", { action: { ...action, nonce: nonce.toString() }, signature });
+    // Data pembukaan disimpan hanya bila commit diterima: commit yang ditolak tidak boleh menimpa yang sah.
+    this.pendingReviews.set(invite.sessionId.toLowerCase(), { invite, recommendation, text, reviewHash, reviewURI, reviewNonce });
+    return res;
+  }
+
+  /** Penelaah membuka commit-nya; isi telaah dikirim bersama pembukaan. */
+  async revealReview(invite: Invite) {
+    const p = this.pendingReviews.get(invite.sessionId.toLowerCase());
+    if (!p) throw new Error("Tidak ada commit tertunda untuk sesi ini (data commit hanya di klien)");
+    const ps = deriveEphemeral(this.secret, invite.sessionId, Role.Reviewer, invite.slot);
+    const nonce = await this.nonceOf(ps.pseudonym);
+    const action = {
+      sessionId: invite.sessionId,
+      pseudonym: ps.pseudonym,
+      assignmentCommitment: invite.assignmentCommitment,
+      recommendation: p.recommendation,
+      reviewHash: p.reviewHash,
+      reviewURI: p.reviewURI,
+      reviewNonce: p.reviewNonce,
+      nonce,
+    };
+    const signature = await signReveal(this.signer(ps.privateKey), action);
+    return this.anon().post("/flows/reviews/reveal", { action: { ...action, nonce: nonce.toString() }, signature, text: p.text });
+  }
+
+  /** Pseudonim penelaah untuk sebuah undangan (diturunkan dari secret). */
+  reviewerPseudonym(invite: Invite) {
+    return deriveEphemeral(this.secret, invite.sessionId, Role.Reviewer, invite.slot);
+  }
+
   /** Menandatangani `CreateSession` untuk hasil intake. */
   async signCreateSession(intake: IntakeResult, pseudonymKey: Hex, pseudonym: Address) {
     const nonce = BigInt((await this.api.get<{ nonce: string }>(`/flows/nonce/${pseudonym}`)).nonce);
@@ -124,6 +282,32 @@ export class Member {
     return { intake, pseudonym: ps, signed, submission };
   }
 }
+
+export interface Invite {
+  id: string;
+  role: "editor" | "reviewer";
+  sessionId: Hex;
+  slot: number;
+  inviteSalt: Hex;
+  assignmentCommitment: Hex;
+  criteria: { fields: string[]; hash: Hex };
+  proofUri: string;
+  accepted: boolean;
+  sessionStatus: string;
+  journal: { id: number; name: string; category: string } | null;
+  anonymizedManuscriptUrl: string | null;
+}
+
+interface PendingReview {
+  invite: Invite;
+  recommendation: RecommendationValue;
+  text: string;
+  reviewHash: Hex;
+  reviewURI: string;
+  reviewNonce: Hex;
+}
+
+export { DeskDecision };
 
 export interface IntakeResult {
   manuscriptId: string;

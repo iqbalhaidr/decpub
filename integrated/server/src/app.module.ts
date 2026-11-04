@@ -25,6 +25,16 @@ import { UsersRepository } from "./users/users.repository.js";
 import { VerificationController } from "./verification/verification.controller.js";
 import { VerificationService } from "./verification/verification.service.js";
 import { Reflector } from "@nestjs/core";
+import { HttpZkProver } from "@decpub/shared";
+import { AssignmentsController } from "./flows/assignments.controller.js";
+import { EditorialService } from "./flows/editorial.service.js";
+import { ProgressService } from "./flows/progress.service.js";
+import { ReviewsService } from "./flows/reviews.service.js";
+import { AuditTrailService } from "./public/audit-trail.service.js";
+import { ProjectionService } from "./public/projection.service.js";
+import { DbInviteChannel, INVITE_CHANNEL } from "./selection/invite-channel.js";
+import { InvitationsRepository } from "./selection/invitations.repository.js";
+import { SHUFFLE, SelectionService, ZK_PROVER, cryptoShuffle } from "./selection/selection.service.js";
 
 /**
  * Modul akar. `AppModule.forRoot(config)` membuat konfigurasi eksplisit (tes dan skrip demo
@@ -44,6 +54,7 @@ export class AppModule {
         VerificationController,
         ManuscriptsController,
         FlowsController,
+        AssignmentsController,
         PublicController,
       ],
       providers: [
@@ -65,6 +76,17 @@ export class AppModule {
         AnonymizationService,
         PipelineService,
         SessionDetailService,
+        InvitationsRepository,
+        DbInviteChannel,
+        { provide: INVITE_CHANNEL, useExisting: DbInviteChannel },
+        { provide: ZK_PROVER, inject: [APP_CONFIG], useFactory: (c: AppConfig) => new HttpZkProver(c.zkUrl) },
+        { provide: SHUFFLE, useValue: cryptoShuffle },
+        SelectionService,
+        ProgressService,
+        EditorialService,
+        ReviewsService,
+        ProjectionService,
+        AuditTrailService,
       ],
       exports: [APP_CONFIG],
     };
