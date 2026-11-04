@@ -1,6 +1,6 @@
 /** Pembaca keadaan on-chain untuk zk-sim, lewat RPC (viem). */
 import { createPublicClient, http, type Address, type Hex } from "viem";
-import { EscrowPoolAbi, IncentiveEngineAbi, PermanentAccountsAbi, ReputationSBTAbi } from "@decpub/shared";
+import { EscrowPoolAbi, IncentiveEngineAbi, PermanentAccountsAbi, PublicationSessionsAbi, ReputationSBTAbi } from "@decpub/shared";
 import type { ChainReader } from "./checks.js";
 
 /**
@@ -13,6 +13,8 @@ export function rpcChainReader(
   escrowPool?: Address,
   /** Opsional: tanpanya jenis REPUTATION_BUCKET dan REPUTATION_CLAIM menjawab 501 (`REPUTATION_NOT_CONFIGURED`). */
   reputation?: { reputationSbt: Address; engine: Address; fromBlock?: bigint },
+  /** Opsional: tanpanya jenis SELECTIVE_DISCLOSURE menjawab 501 (`DISCLOSURE_NOT_CONFIGURED`). */
+  publicationSessions?: Address,
 ): ChainReader {
   const client = createPublicClient({ transport: http(rpcUrl) });
   const reader: ChainReader = {
@@ -24,6 +26,18 @@ export function rpcChainReader(
         args: [commitment],
       }),
   };
+  if (publicationSessions) {
+    reader.identityCommitmentOf = async (account) => {
+      const acc = await client.readContract({ address: permanentAccounts, abi: PermanentAccountsAbi, functionName: "getAccount", args: [account] }).catch(() => null);
+      return acc && acc.exists ? acc.identityCommitment : null;
+    };
+    reader.sessionParty = async (sessionId, role) => {
+      const s = await client.readContract({ address: publicationSessions, abi: PublicationSessionsAbi, functionName: "getSession", args: [sessionId] }).catch(() => null);
+      if (!s || !s.exists) return null;
+      const p = role === 0 ? s.authorPseudonym : s.editorPseudonym;
+      return /^0x0{40}$/i.test(p) ? null : p;
+    };
+  }
   if (escrowPool) {
     reader.isNoteDeposited = (commitment) =>
       client.readContract({ address: escrowPool, abi: EscrowPoolAbi, functionName: "noteDeposited", args: [commitment] });

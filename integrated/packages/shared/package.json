@@ -10,7 +10,7 @@
     "./node": "./src/node.ts"
   },
   "scripts": {
-    "test": "node --import tsx --test test/unit.test.ts test/crypto.test.ts test/documents.test.ts",
+    "test": "node --import tsx --test test/unit.test.ts test/crypto.test.ts test/documents.test.ts test/disclosure.test.ts",
     "test:external": "node --env-file-if-exists=../../.env --import tsx --test test/external.test.ts",
     "typecheck": "tsc --noEmit"
   },

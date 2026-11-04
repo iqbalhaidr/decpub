@@ -20,7 +20,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { createPublicClient, http, parseAbi, type Address } from 'viem';
 import { attestorAddress } from '@decpub/shared';
-import { CIKO_CONTRACTS, GATEWAY_MANAGED, HUGO_CONTRACTS, INTEGRATED_CONTRACTS, SESSION_STATUS_WRITERS } from '../wiring.js';
+import { CIKO_CONTRACTS, GATEWAY_MANAGED, HUGO_CONTRACTS, INTEGRATED_CONTRACTS, ROIHAN_CONTRACTS, SESSION_STATUS_WRITERS } from '../wiring.js';
 import { hugoParams } from '../hugo-params.js';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
@@ -72,7 +72,7 @@ const stranger = accounts[accounts.length - 1];
 console.log(`Jaringan ${network}, RPC ${rpcUrl}`);
 console.log(`deployer ${deployer}\noperator ${operator}\n`);
 
-for (const name of [...CIKO_CONTRACTS, ...INTEGRATED_CONTRACTS, ...HUGO_CONTRACTS]) {
+for (const name of [...CIKO_CONTRACTS, ...INTEGRATED_CONTRACTS, ...HUGO_CONTRACTS, ...ROIHAN_CONTRACTS]) {
   const address = contracts[name];
   if (!address) {
     expect(false, `${name} ada di deployments/${network}.json`);
@@ -82,7 +82,7 @@ for (const name of [...CIKO_CONTRACTS, ...INTEGRATED_CONTRACTS, ...HUGO_CONTRACT
   expect(!!code && code !== '0x', `${name} punya kode di ${address}`);
 }
 
-for (const name of [...CIKO_CONTRACTS, ...INTEGRATED_CONTRACTS, ...HUGO_CONTRACTS]) {
+for (const name of [...CIKO_CONTRACTS, ...INTEGRATED_CONTRACTS, ...HUGO_CONTRACTS, 'PublicationRecords'] as const) {
   const address = contracts[name];
   if (!address) continue;
   const admin = await client.readContract({ address, abi, functionName: 'admin' });
@@ -201,6 +201,38 @@ if (pool && sbt && engine) {
   await eqAddr(engine, engineAbi, 'reviewSubmissions', addrOf('ReviewSubmissions'), 'IncentiveEngine.reviewSubmissions = ReviewSubmissions');
   await eqNum(engine, engineAbi, 'sigmoidK', hp.sigmoidK, 'IncentiveEngine.sigmoidK = 10');
   await eqNum(engine, engineAbi, 'sigmoidX0', hp.sigmoidX0, 'IncentiveEngine.sigmoidX0 = 0,5');
+}
+
+// ---- Roihan dan pasca-publikasi (M8)
+const recordsAbi = parseAbi([
+  'function operator() view returns (address)',
+  'function publicationSessions() view returns (address)',
+  'function doiToken() view returns (address)',
+  'function verifierSource() view returns (address)',
+]);
+const doiAbi = parseAbi([
+  'function hasRole(bytes32 role, address account) view returns (bool)',
+  'function MINTER_ROLE() view returns (bytes32)',
+  'function DEFAULT_ADMIN_ROLE() view returns (bytes32)',
+]);
+const { DOIToken: doi, PublicationRecords: records } = contracts;
+if (doi && records) {
+  await eqAddr(records, recordsAbi, 'operator', operator, 'PublicationRecords.operator = operator');
+  await eqAddr(records, recordsAbi, 'publicationSessions', addrOf('PublicationSessions'), 'PublicationRecords.publicationSessions = PublicationSessions');
+  await eqAddr(records, recordsAbi, 'doiToken', doi, 'PublicationRecords.doiToken = DOIToken');
+  await eqAddr(records, recordsAbi, 'verifierSource', gw, 'PublicationRecords.verifierSource = ActionGateway');
+
+  const minter = (await rd(doi, doiAbi, 'MINTER_ROLE')) as `0x${string}`;
+  const adminRole = (await rd(doi, doiAbi, 'DEFAULT_ADMIN_ROLE')) as `0x${string}`;
+  const hasRole = (role: `0x${string}`, who: Address) =>
+    client.readContract({ address: doi, abi: doiAbi, functionName: 'hasRole', args: [role, who] });
+  expect(await hasRole(adminRole, deployer), 'DOIToken: deployer memegang DEFAULT_ADMIN_ROLE');
+  expect(await hasRole(minter, records), 'DOIToken: PublicationRecords memegang MINTER_ROLE');
+  expect(!(await hasRole(minter, operator)), 'DOIToken: operator BUKAN minter (DOI hanya lewat PublicationRecords)');
+  expect(!(await hasRole(minter, deployer)), 'DOIToken: deployer BUKAN minter');
+  if (stranger.toLowerCase() !== operator.toLowerCase()) {
+    expect(!(await hasRole(minter, stranger)), 'DOIToken: akun acak BUKAN minter');
+  }
 }
 
 console.log(`\n${checks - failures.length}/${checks} pemeriksaan lulus.`);

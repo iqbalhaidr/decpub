@@ -106,6 +106,13 @@ export const signals = {
     word(tier),
     nullifier,
   ],
+  /** [sessionId, pseudonym, permanentAccount, attributesHash]. `PublicationRecords.recordDisclosure`. */
+  selectiveDisclosure: (sessionId: Hex, pseudonym: Address, permanentAccount: Address, attributesHash: Hex): Hex[] => [
+    sessionId,
+    addrWord(pseudonym),
+    addrWord(permanentAccount),
+    attributesHash,
+  ],
   /** [reputationId, amount, nullifier]. `ReputationSBT.claimReputation`. */
   reputationClaim: (reputationId: Hex, amount: bigint, nullifier: Hex): Hex[] => [
     reputationId,

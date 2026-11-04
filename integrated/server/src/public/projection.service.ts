@@ -13,6 +13,7 @@ import { SessionReader } from "../chain/session-reader.service.js";
 import { APP_CONFIG, type AppConfig } from "../config/config.js";
 import { InvitationsRepository } from "../selection/invitations.repository.js";
 import { RoundService } from "../flows/rounds.service.js";
+import { RecordsService } from "../publication/records.service.js";
 
 const cidOfUri = (uri: string) => uri.replace(/^ipfs:\/\//, "");
 
@@ -23,6 +24,7 @@ export class ProjectionService {
     private readonly reader: SessionReader,
     private readonly invitations: InvitationsRepository,
     private readonly rounds: RoundService,
+    private readonly records: RecordsService,
   ) {}
 
   private url(uri: string) {
@@ -81,6 +83,8 @@ export class ProjectionService {
       },
       decision,
       decisions,
+      // Pasca-publikasi (M8): DOI bila sudah terbit. Nama penulis tidak ada di sini; lihat GET /articles/:id.
+      publication: await this.records.getFinal(sessionId).then((f) => f && { doi: f.doi, doiTokenId: f.doiTokenId, publishedAt: f.publishedAt }),
     };
   }
 

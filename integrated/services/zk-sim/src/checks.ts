@@ -24,6 +24,10 @@ import {
   reputationId,
   reputationTier,
   MAX_TIER,
+  attributesHash,
+  isDisclosableRole,
+  normalizeAttributes,
+  type DisclosureAttributes,
   type ZkKindValue,
 } from "@decpub/shared";
 import { isHex, pad, recoverMessageAddress, type Address, type Hex } from "viem";
@@ -53,6 +57,10 @@ export interface ChainReader {
   effectiveBalance?(reputationId: Hex): Promise<bigint>;
   /** `ReputationSBT.nullifierUsed`. */
   isReputationNullifierUsed?(nullifier: Hex): Promise<boolean>;
+  /** Commitment identitas yang terdaftar untuk akun permanen, atau null bila akun tidak terdaftar. */
+  identityCommitmentOf?(account: Address): Promise<Hex | null>;
+  /** Pseudonim Author (role 0) atau Editor (role 2) sebuah sesi, atau null bila belum ada. Tanpa `PublicationSessions`: jenis pengungkapan 501. */
+  sessionParty?(sessionId: Hex, role: 0 | 2): Promise<Address | null>;
   /**
    * Kredit reputasi (skala 1e18) yang dicatat `IncentiveEngine` untuk pseudonim di sesi itu
    * (event `RewardCredited`), atau null bila tidak ada kredit.
@@ -329,10 +337,62 @@ const checkReputationClaim: Checker = async (witnessRaw, signals, ctx) => {
   }
 };
 
-/** Jenis yang belum punya pemeriksa, beserta milestone yang mengisinya. */
-const PENDING: Partial<Record<ZkKindValue, string>> = {
-  [ZkKind.SelectiveDisclosure]: "M8",
+/**
+ * SELECTIVE_DISCLOSURE (P08, B2). Sinyal: [sessionId, pseudonym, permanentAccount, attributesHash].
+ * Witness: secret, role (0 Author atau 2 Editor), attributes, salt. Diperiksa:
+ *  - peran boleh diungkap (penelaah TIDAK PERNAH), sehingga bukti untuk pseudonim penelaah tidak terbit;
+ *  - pseudonim = turunan secret untuk (sesi, peran, slot 0) dan memang pseudonim peran itu di sesi tersebut;
+ *  - akun permanen terdaftar dengan commitment identitas dari secret yang sama (pemilik pseudonim = pemilik akun);
+ *  - attributesHash dihitung dari atribut dan salt yang dibawa witness (hanya atribut terpilih yang masuk).
+ * Kebenaran atribut terhadap data pengajuan bukan urusan bukti ini; server memeriksanya.
+ */
+const checkSelectiveDisclosure: Checker = async (witnessRaw, signals, ctx) => {
+  if (signals.length !== 4) bad("SELECTIVE_DISCLOSURE butuh 4 sinyal publik");
+  const w = asRecord(witnessRaw, "witness");
+  if (!isBytes32(w.secret)) bad("witness.secret harus bytes32 hex");
+  if (!isBytes32(w.salt)) bad("witness.salt harus bytes32 hex");
+  const attrsRaw = asRecord(w.attributes ?? {}, "witness.attributes");
+  for (const [k, v] of Object.entries(attrsRaw)) {
+    if (typeof v !== "string") bad(`witness.attributes.${k} harus string`);
+  }
+  const role = w.role;
+  if (!isDisclosableRole(role)) {
+    throw new ZkCheckError("ROLE_NOT_DISCLOSABLE", "hanya penulis dan editor yang bisa membuka identitas; penelaah tidak pernah");
+  }
+  const chain = ctx.chain;
+  if (!chain.sessionParty || !chain.identityCommitmentOf) {
+    throw new ZkCheckError("DISCLOSURE_NOT_CONFIGURED", "zk-sim tidak punya akses ke PublicationSessions/PermanentAccounts", 501);
+  }
+  const [sessionId, pseudonymWord, accountWord, hash] = signals;
+  const pseudonym = signalAddress(pseudonymWord);
+  const account = signalAddress(accountWord);
+  if (!pseudonym || !account) bad("sinyal pseudonim/akun permanen bukan alamat");
+
+  // 1. Pseudonim turunan secret ini dan memang pseudonim peran itu di sesi tersebut.
+  const d = deriveEphemeral(w.secret, sessionId, role, 0);
+  if (d.pseudonym.toLowerCase() !== pseudonym.toLowerCase()) {
+    throw new ZkCheckError("PSEUDONYM_MISMATCH", "pseudonim bukan turunan dari secret, sesi, dan peran ini");
+  }
+  const party = await chain.sessionParty(sessionId, role);
+  if (!party || party.toLowerCase() !== pseudonym.toLowerCase()) {
+    throw new ZkCheckError("NOT_SESSION_PARTY", "pseudonim ini bukan pseudonim peran tersebut di sesi itu");
+  }
+
+  // 2. Akun permanen terdaftar untuk identitas dari secret yang sama.
+  const registered = await chain.identityCommitmentOf(account);
+  if (!registered || registered.toLowerCase() !== identityCommitment(w.secret).toLowerCase()) {
+    throw new ZkCheckError("NOT_ACCOUNT_OWNER", "akun permanen ini bukan milik pemegang secret");
+  }
+
+  // 3. Hash atribut dari atribut terpilih dan salt.
+  const attrs: DisclosureAttributes = normalizeAttributes(attrsRaw as DisclosureAttributes);
+  if (attributesHash(sessionId, role, attrs, w.salt).toLowerCase() !== hash.toLowerCase()) {
+    throw new ZkCheckError("ATTRIBUTES_MISMATCH", "hash atribut tidak sesuai atribut dan salt");
+  }
 };
+
+/** Jenis yang belum punya pemeriksa, beserta milestone yang mengisinya. Kosong sejak M8. */
+const PENDING: Partial<Record<ZkKindValue, string>> = {};
 
 const CHECKERS: Partial<Record<ZkKindValue, Checker>> = {
   [ZkKind.Ephemeral]: checkEphemeral,
@@ -342,6 +402,7 @@ const CHECKERS: Partial<Record<ZkKindValue, Checker>> = {
   [ZkKind.NoteRefund]: checkNoteRefund,
   [ZkKind.ReputationBucket]: checkReputationBucket,
   [ZkKind.ReputationClaim]: checkReputationClaim,
+  [ZkKind.SelectiveDisclosure]: checkSelectiveDisclosure,
 };
 
 export const SUPPORTED_KINDS = Object.keys(CHECKERS).map(Number) as ZkKindValue[];

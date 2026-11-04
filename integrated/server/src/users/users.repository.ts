@@ -82,6 +82,11 @@ export class UsersRepository {
     );
   }
 
+  /** Penelaah yang bidangnya sudah disetujui admin (jumlah saja). */
+  countVerifiedReviewers(): number {
+    return Number(this.db.get("SELECT COUNT(*) AS n FROM users WHERE role = 'reviewer' AND verified_fields != '[]'")?.n ?? 0);
+  }
+
   setVerifiedFields(id: string, fields: string[]): void {
     this.db.run("UPDATE users SET verified_fields = ? WHERE id = ?", JSON.stringify(fields), id);
   }

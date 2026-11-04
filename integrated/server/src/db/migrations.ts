@@ -184,4 +184,44 @@ CREATE TABLE reputation_claim_queue (
 );
 `,
   },
+  {
+    version: 5,
+    sql: `
+-- Selective disclosure (P08, M8). Satu baris per (sesi, peran): hanya atribut yang DIPILIH pengguna yang tersimpan,
+-- bersama salt supaya siapa pun dapat menghitung ulang hash atribut yang tercatat on-chain. Isi ini publik
+-- (artikel menampilkannya); atribut yang tidak dipilih tidak pernah masuk tabel ini.
+-- \`original_cid\` terisi bila penulis juga membuka naskah asli; \`original_uploaded_at\` kosong = CID sudah tercatat
+-- on-chain tetapi berkas belum terunggah (diulang pada permintaan berikutnya).
+CREATE TABLE disclosures (
+  session_id            TEXT NOT NULL,
+  role                  INTEGER NOT NULL CHECK (role IN (0, 2)),
+  user_id               TEXT NOT NULL REFERENCES users(id),
+  pseudonym             TEXT NOT NULL,
+  permanent_account     TEXT NOT NULL,
+  attributes_json       TEXT NOT NULL,
+  salt                  TEXT NOT NULL,
+  attributes_hash       TEXT NOT NULL,
+  original_cid          TEXT,
+  original_uploaded_at  TEXT,
+  tx_hash               TEXT NOT NULL,
+  disclosed_at          TEXT NOT NULL,
+  PRIMARY KEY (session_id, role)
+);
+
+-- Isi komentar pembaca; hash-nya ada on-chain (\`DOIToken.CommentPosted\`). \`handle\` hanya nama tampilan per artikel.
+CREATE TABLE comments (
+  id            INTEGER PRIMARY KEY AUTOINCREMENT,
+  session_id    TEXT NOT NULL,
+  doi_token_id  INTEGER NOT NULL,
+  user_id       TEXT NOT NULL REFERENCES users(id),
+  handle        TEXT NOT NULL,
+  body          TEXT NOT NULL,
+  nonce         TEXT NOT NULL,
+  content_hash  TEXT NOT NULL UNIQUE,
+  tx_hash       TEXT NOT NULL,
+  created_at    TEXT NOT NULL
+);
+CREATE INDEX idx_comments_session ON comments(session_id);
+`,
+  },
 ];

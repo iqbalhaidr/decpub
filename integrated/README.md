@@ -4,18 +4,19 @@ Integrasi tiga tugas akhir (Ciko, Hugo, Roihan) menjadi satu sistem publikasi il
 anonim (triple blind) dengan insentif penelaah. Rancangan: `../docs/arsitektur.md`.
 Urutan kerja: `../docs/PLAN.md`. Status: `../docs/PROGRESS.md`.
 
-**Status saat ini: M7 selesai.** Kontrak Ciko (M0), storage simulator (M1), ZK simulasi,
+**Status saat ini: M8 selesai.** Kontrak Ciko (M0), storage simulator (M1), ZK simulasi,
 `ActionGateway`, dan pseudonim tanpa tautan (M2), backend P01-P04 (M3), P05-P08 jalur diterima (M4),
 revisi, zona abu-abu, dan penolakan (M5), kontrak escrow dan insentif Hugo (M6), serta insentif di backend
-(APC di muka, QoS, imbalan otomatis, klaim, reputasi, refund; M7) berjalan.
-Pelengkap Roihan dan frontend menyusul (M8 dst).
+(APC di muka, QoS, imbalan otomatis, klaim, reputasi, refund; M7) berjalan. Pasca-publikasi dan pelengkap Roihan
+(DOI NFT, selective disclosure, open review, komentar, statistik agregat; M8) berjalan.
+Frontend menyusul (M9 dst).
 Target akhir: `npm install && npm run demo`.
 
 ## Prasyarat
 
 - Node >= 22 (diuji di Node 24.11.0), npm 11.
 
-## Menjalankan (M0 sampai M7)
+## Menjalankan (M0 sampai M8)
 
 ```bash
 cd integrated
@@ -42,6 +43,7 @@ npm run demo:m4          # demo/regresi M4: P05-P08 jalur diterima sampai Publis
 npm run demo:m5          # demo/regresi M5: revisi Minor/Major, zona abu-abu, desk reject/revisi desk, no-show (prasyarat sama)
 npm run demo:m6          # demo/regresi M6: escrow, refund, timeout, distribusi D1 = Lampiran B Hugo, klaim, decay (prasyarat sama; zk-sim dinyalakan sendiri)
 npm run demo:m7          # demo/regresi M7: APC di muka, imbalan sesuai kualitas, laporan QoS = hash on-chain, klaim, reputasi per epoch, q4 sesi kedua, refund (prasyarat sama)
+npm run demo:m8          # demo/regresi M8: verifikasi bidang menentukan kandidat, DOI, artikel anonim, open review, komentar, selective disclosure, revisi + DOI versi 2 (prasyarat sama)
 ```
 
 `demo:m6` memajukan jam chain lebih dari 180 hari dan `demo:m7` beberapa hari (`evm_increaseTime`). Tidak merusak demo lain; jalankan ulang
@@ -88,12 +90,14 @@ contracts/
   contracts/zk/           IZkVerifier, SimulatedZkVerifier
   contracts/gateway/      ActionGateway
   contracts/hugo/         EscrowPool, IncentiveEngine, ReputationSBT (M6)
+  contracts/roihan/       DOIToken (salinan Roihan, tanpa perubahan), DOILib (diekstrak dari PublicationRegistry) (M8)
+  contracts/records/      PublicationRecords: rujukan final, DOI, selective disclosure (M8)
   hugo-params.ts          parameter kontrak Hugo (APC, timeout, decay), dipakai Ignition dan check-wiring
   ignition/modules/       Integrated.ts = CikoSystem.ts + verifier + gateway + Hugo + izin
   wiring.ts               daftar izin, dipakai modul dan check-wiring
   scripts/                export-addresses.ts, check-wiring.ts, export-abis.ts
   test/ciko/              tes asli Ciko (disesuaikan untuk EphemeralAccounts)
-  test/integrated/        tes verifier, gateway, EscrowPool, IncentiveEngine, ReputationSBT, gas
+  test/integrated/        tes verifier, gateway, EscrowPool, IncentiveEngine, ReputationSBT, PublicationRecords, gas
 ```
 
 ## Catatan
@@ -194,3 +198,26 @@ Penyelesaian berjalan otomatis saat status final dan ada keputusan penelaah (`Pr
 q2/q3 dari `SimulatedQoSProvider` `[SIMULASI]`, q4 dari tingkat yang dibuktikan; bobot dari kebijakan jurnal yang dikunci saat
 sesi dibuat; laporan QoS diunggah ke storage dan hash-nya masuk transaksi `executeDistribution`. TOPSIS, sigmoid, dan
 pembagian escrow dijalankan kontrak. Variabel env baru: `ESCROW_REQUIRED`, `QOS_PROVIDER` (hanya `simulated`).
+
+### Pasca-publikasi dan pelengkap Roihan (M8)
+
+Saat sesi `Published`, `ProgressService` memanggil `PublicationRecords.recordFinal`: DOI (`10.55121/<tahun>.<chainId>.<nomor>.<versi>`,
+versi = revisi + 1) dimint sebagai NFT `DOIToken` yang dimiliki **kontrak** (bukan akun penulis, supaya tidak menaut penulis ke naskah).
+`[SIMULASI]` DOI tidak terdaftar di registrar mana pun. Artikel tampil anonim sampai penulis memilih mengungkap diri.
+
+| Endpoint | Fungsi |
+|---|---|
+| `GET /articles`, `GET /articles/:sessionId` | daftar dan detail artikel terbit (DOI, hash on-chain, pengungkapan beserta cek hash) |
+| `GET /articles/:sessionId/open-review` | laporan editorial dan telaah per batch (pseudonim, rekomendasi, isi, cek hash), tanpa surel |
+| `GET/POST /articles/:sessionId/comments` | komentar pembaca: hash di `DOIToken.postComment`, isi di server; POST butuh login |
+| `POST /flows/disclosure` | selective disclosure penulis (atau editor, opsional) dengan bukti `SELECTIVE_DISCLOSURE` |
+| `GET /stats` | kontribusi agregat platform (angka saja) |
+| `GET /me/contributions` | kontribusi milik sendiri (jumlah artikel terbit, penyaringan, telaah) |
+| `GET/POST /admin/field-requests...` | antrian verifikasi bidang penelaah oleh admin (sejak M3); hasilnya menentukan kandidat seleksi |
+
+**Selective disclosure.** Klien membuat bukti di zk-sim dari secret: pseudonim Author (atau Editor) sesi itu dimiliki pemegang akun permanen
+yang sama, dan `attributesHash` dihitung dari atribut yang DIPILIH + salt. Server memeriksa bukti di verifier on-chain, mencocokkan atribut
+dengan data pengajuan (bukti tidak bisa menjamin kebenaran atribut), memeriksa komitmen metadata dan sha256 naskah asli terhadap hash
+on-chain, mencatat di `PublicationRecords`, dan baru kemudian mengunggah naskah asli ke storage publik (CID sudah tercatat on-chain).
+Atribut yang tidak dipilih tidak pernah tersimpan atau terkirim. **Penelaah tidak punya jalur pengungkapan**: ditolak di DTO, zk-sim, dan kontrak.
+

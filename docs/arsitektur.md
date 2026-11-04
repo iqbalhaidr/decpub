@@ -622,6 +622,10 @@ Yang dipertahankan: `next`, `react`, `react-dom`, `viem`, `axios`.
 | Klaim reputasi dibulatkan ke bawah ke kelipatan 0,25 | Keputusan M7, disetujui pengguna | Kredit di bawah 0,25 tidak bisa diklaim, dan sisa pembulatan tertahan di `unclaimedPool`. Aman (klaim tak pernah melebihi kredit), tetapi penelaah dengan skor sedang tidak menambah reputasi |
 | Lebih dari 10 pseudonim reveal pada satu sesi: 10 terbaru yang dihitung | Keputusan M7, disetujui pengguna | Kontrak menolak lebih dari 10 baris (D2). Terjadi hanya pada beberapa ronde dengan zona abu-abu; yang dikecualikan dicatat di laporan QoS |
 | Tenggat otomatis fase telaah dan timeout refund digerakkan manual | Keputusan M7, disetujui pengguna | `close-phase` dan `POST /escrow/refund` tetap dipicu manusia; tidak ada penjadwal di server |
+| Kontribusi agregat hanya di tingkat platform dan milik sendiri | Keputusan M8, disetujui pengguna | `GET /stats` (angka platform) dan `GET /me/contributions` (jumlah milik sendiri, wajib login). Tidak ada profil publik per anggota, karena menautkan identitas ke tingkat aktivitas |
+| Nama dan afiliasi editor saat disclosure adalah klaim sendiri | Keputusan M8, disetujui pengguna | Akun editor tidak punya data nama; hanya surel yang dicocokkan dengan akun. Untuk penulis semua atribut dicocokkan dengan data pengajuan oleh server (bukti ZK tidak menjamin kebenaran atribut) |
+| Pengungkapan identitas tidak bisa dicabut | Keputusan M8 | Satu kali per (sesi, peran); tautan pseudonim ke akun permanen publik selamanya. UI harus memperingatkan sebelum penulis memilih |
+| Komentar pembaca diposting relayer | Keputusan M8 | `reader` di event `CommentPosted` selalu operator; pembaca hanya dibedakan lewat nama tampilan per artikel |
 | ZK adalah simulasi | Instruksi pengguna | Attestor melihat witness dan sifat zero-knowledge tidak ada. Nilainya ada pada bentuk alur dan interface |
 | Tanpa audit keamanan | Lingkup | Tidak layak produksi |
 

@@ -44,6 +44,8 @@ export const ABIS = {
   EscrowPool: shared.EscrowPoolAbi,
   IncentiveEngine: shared.IncentiveEngineAbi,
   ReputationSBT: shared.ReputationSBTAbi,
+  DOIToken: shared.DOITokenAbi,
+  PublicationRecords: shared.PublicationRecordsAbi,
 } as const satisfies Record<string, Abi>;
 export type ContractName = keyof typeof ABIS;
 

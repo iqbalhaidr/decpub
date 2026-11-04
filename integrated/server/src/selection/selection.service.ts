@@ -32,6 +32,13 @@ import { InvitationsRepository, type Invitation, type InviteRole } from "./invit
 
 export const ZK_PROVER = Symbol("ZK_PROVER");
 
+/**
+ * Kandidat penelaah kurang dari yang dibutuhkan (mis. bidang belum diverifikasi admin, atau belum cukup yang
+ * mendaftarkan identitas). `ProgressService` menangkapnya sebagai langkah tertunda (`blocked`), bukan galat
+ * permintaan: putusan editor sudah tercatat, dan seleksi berlanjut setelah kandidat cukup (`/system/sessions/:id/progress`).
+ */
+export class InsufficientCandidatesError extends ConflictException {}
+
 /** Pengacakan yang bisa diganti di tes. */
 export type Shuffle = <T>(items: readonly T[]) => T[];
 export const cryptoShuffle: Shuffle = (items) => {
@@ -107,7 +114,7 @@ export class SelectionService {
     const others = this.shuffle(eligible.filter((u) => !preferredIds.has(u.id)));
     const pool = [...preferred, ...others];
     if (pool.length < count) {
-      throw new ConflictException(`Kandidat penelaah tidak cukup: butuh ${count}, tersedia ${pool.length} untuk bidang ${fields.join(", ")}`);
+      throw new InsufficientCandidatesError(`Kandidat penelaah tidak cukup: butuh ${count}, tersedia ${pool.length} untuk bidang ${fields.join(", ")}`);
     }
     const out: Invitation[] = [];
     for (const u of pool.slice(0, count)) out.push(await this.invite(u, sessionId, "reviewer", slot, fields));

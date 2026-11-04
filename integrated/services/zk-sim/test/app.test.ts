@@ -27,6 +27,9 @@ import {
   issueRoleCredential,
   proofDigest,
   signals,
+  attributesHash,
+  permanentAccountAddress,
+  type DisclosureAttributes,
 } from "@decpub/shared";
 import { createZkApp } from "../src/index.ts";
 
@@ -48,7 +51,12 @@ const bound = new Map<string, Hex>();
 const balances = new Map<string, bigint>();
 const credits = new Map<string, bigint>();
 const claimed = new Set<string>();
+/** PermanentAccounts dan PublicationSessions palsu untuk pengungkapan: akun -> commitment, (sesi, peran) -> pseudonim. */
+const accountCommitments = new Map<string, Hex>();
+const parties = new Map<string, Hex>();
 const chain = {
+  identityCommitmentOf: async (a: Hex) => accountCommitments.get(a.toLowerCase()) ?? null,
+  sessionParty: async (sid: Hex, role: 0 | 2) => parties.get(`${sid}:${role}`.toLowerCase()) ?? null,
   effectiveBalance: async (id: Hex) => balances.get(id.toLowerCase()) ?? 0n,
   isReputationNullifierUsed: async (n: Hex) => claimed.has(n.toLowerCase()),
   reputationCredit: async (sid: Hex, p: Hex) => credits.get(`${sid}:${p}`.toLowerCase()) ?? null,
@@ -275,16 +283,43 @@ describe("zk-sim ASSIGNMENT", () => {
 });
 
 describe("zk-sim lainnya", () => {
-  it("kinds without a checker return 501 and name the milestone", async () => {
+  it("a kind without a checker would return 501 and name the milestone (none are pending after M8)", async () => {
     const res = await fetch(`${base}/prove`, {
       method: "POST",
       headers: { "content-type": "application/json" },
-      body: JSON.stringify({ kind: ZkKind.SelectiveDisclosure, witness: {}, publicSignals: [SESSION] }),
+      body: JSON.stringify({ kind: 99, witness: {}, publicSignals: [SESSION] }),
     });
-    assert.equal(res.status, 501);
-    const body = (await res.json()) as { error: string; message: string };
-    assert.equal(body.error, "NOT_IMPLEMENTED");
-    assert.match(body.message, /M8/);
+    assert.equal(res.status, 400);
+  });
+
+  it("selective disclosure answers 501 DISCLOSURE_NOT_CONFIGURED when zk-sim has no PublicationSessions", async () => {
+    const app = createZkApp({
+      attestorPrivateKey: ATTESTOR_KEY,
+      chainId: CHAIN_ID,
+      verifier: VERIFIER,
+      issuer: privateKeyToAccount(ISSUER_KEY).address,
+      chain: { isIdentityRegistered: async () => true },
+    });
+    const srv: Server = await new Promise((r) => {
+      const x = app.listen(0, "127.0.0.1", () => r(x));
+    });
+    try {
+      const url = `http://127.0.0.1:${(srv.address() as AddressInfo).port}`;
+      const secret = generateSecret();
+      const d = deriveEphemeral(secret, SESSION, Role.Author, 0);
+      const salt = ("0x" + "ab".repeat(32)) as Hex;
+      const acct = permanentAccountAddress(secret);
+      const h = attributesHash(SESSION, Role.Author, { name: "A" }, salt);
+      const res = await fetch(`${url}/prove`, {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ kind: ZkKind.SelectiveDisclosure, witness: { secret, role: 0, attributes: { name: "A" }, salt }, publicSignals: signals.selectiveDisclosure(SESSION, d.pseudonym, acct, h) }),
+      });
+      assert.equal(res.status, 501);
+      assert.equal(((await res.json()) as { error: string }).error, "DISCLOSURE_NOT_CONFIGURED");
+    } finally {
+      srv.close();
+    }
   });
 
   it("reputation proofs answer 501 REPUTATION_NOT_CONFIGURED when zk-sim has no ReputationSBT", async () => {
@@ -605,5 +640,95 @@ describe("zk-sim REPUTATION_CLAIM", () => {
       "NO_CREDIT",
     );
     void owner;
+  });
+});
+
+describe("zk-sim SELECTIVE_DISCLOSURE", () => {
+  const ATTRS: DisclosureAttributes = { name: "Dr. Penulis", affiliation: "Universitas Contoh" };
+
+  /** Anggota yang akun permanennya terdaftar dan pseudonim peran `role` ada di SESSION. */
+  function setup(role: 0 | 2 = Role.Author, session: Hex = SESSION) {
+    const secret = generateSecret();
+    const account = permanentAccountAddress(secret);
+    accountCommitments.set(account.toLowerCase(), identityCommitment(secret));
+    const d = deriveEphemeral(secret, session, role, 0);
+    parties.set(`${session}:${role}`.toLowerCase(), d.pseudonym);
+    const salt = generateSecret();
+    return { secret, account, d, salt, role, session };
+  }
+  const sig = (s: ReturnType<typeof setup>, attrs: DisclosureAttributes = ATTRS, account = s.account) =>
+    signals.selectiveDisclosure(s.session, s.d.pseudonym, account, attributesHash(s.session, s.role as 0 | 2, attrs, s.salt));
+  const witness = (s: ReturnType<typeof setup>, attrs: DisclosureAttributes = ATTRS) => ({
+    secret: s.secret, role: s.role, attributes: attrs, salt: s.salt,
+  });
+
+  it("issues a proof for the author, and for the editor (optional disclosure)", async () => {
+    const a = setup(Role.Author);
+    const proof = await prover.prove(ZkKind.SelectiveDisclosure, witness(a), sig(a));
+    assert.deepEqual(proof.publicSignals, sig(a));
+    const e = setup(Role.Editor, SESSION_2);
+    await prover.prove(ZkKind.SelectiveDisclosure, witness(e, { name: "Editor" }), sig(e, { name: "Editor" }));
+  });
+
+  it("never discloses a reviewer, whatever the secret", async () => {
+    const s = setup(Role.Author);
+    const r = deriveEphemeral(s.secret, SESSION, Role.Reviewer, 1);
+    parties.set(`${SESSION}:1`, r.pseudonym);
+    const h = attributesHash(SESSION, Role.Author, ATTRS, s.salt);
+    await expectRejected(
+      prover.prove(ZkKind.SelectiveDisclosure, { ...witness(s), role: Role.Reviewer }, signals.selectiveDisclosure(SESSION, r.pseudonym, s.account, h)),
+      "ROLE_NOT_DISCLOSABLE",
+    );
+  });
+
+  it("rejects a wrong secret: the pseudonym does not derive from it", async () => {
+    const s = setup();
+    await expectRejected(prover.prove(ZkKind.SelectiveDisclosure, { ...witness(s), secret: generateSecret() }, sig(s)), "PSEUDONYM_MISMATCH");
+  });
+
+  it("rejects a pseudonym that is not the session's author, and a role/session mix-up", async () => {
+    const s = setup();
+    parties.set(`${SESSION}:0`, ("0x" + "9".repeat(40)) as Hex); // sesi punya pseudonim penulis lain
+    await expectRejected(prover.prove(ZkKind.SelectiveDisclosure, witness(s), sig(s)), "NOT_SESSION_PARTY");
+    const t = setup(Role.Author, SESSION_2);
+    await expectRejected(
+      prover.prove(ZkKind.SelectiveDisclosure, witness(t), signals.selectiveDisclosure(SESSION, t.d.pseudonym, t.account, attributesHash(SESSION, 0, ATTRS, t.salt))),
+      "PSEUDONYM_MISMATCH",
+    );
+  });
+
+  it("rejects a permanent account the secret does not own (cannot link the pseudonym to someone else's account)", async () => {
+    const s = setup();
+    const other = setup(Role.Author, SESSION_2);
+    await expectRejected(prover.prove(ZkKind.SelectiveDisclosure, witness(s), sig(s, ATTRS, other.account)), "NOT_ACCOUNT_OWNER");
+    const unregistered = permanentAccountAddress(generateSecret());
+    await expectRejected(prover.prove(ZkKind.SelectiveDisclosure, witness(s), sig(s, ATTRS, unregistered)), "NOT_ACCOUNT_OWNER");
+  });
+
+  it("binds only the chosen attributes: a hash over more or different attributes is refused", async () => {
+    const s = setup();
+    const full = sig(s, { ...ATTRS, email: "a@b.id" });
+    await expectRejected(prover.prove(ZkKind.SelectiveDisclosure, witness(s), full), "ATTRIBUTES_MISMATCH");
+    await expectRejected(prover.prove(ZkKind.SelectiveDisclosure, { ...witness(s), salt: generateSecret() }, sig(s)), "ATTRIBUTES_MISMATCH");
+    await expectRejected(prover.prove(ZkKind.SelectiveDisclosure, witness(s, { name: "Orang Lain" }), sig(s)), "ATTRIBUTES_MISMATCH");
+  });
+
+  it("an unchosen attribute does not change the hash, and an empty value counts as unchosen", async () => {
+    const s = setup();
+    const onlyName = sig(s, { name: "X" });
+    await prover.prove(ZkKind.SelectiveDisclosure, witness(s, { name: "X", email: "" }), onlyName);
+  });
+
+  it("keeps the secret and the salt out of the proof and the error", async () => {
+    const s = setup();
+    const proof = await prover.prove(ZkKind.SelectiveDisclosure, witness(s), sig(s));
+    assert.ok(!JSON.stringify(proof).includes(s.secret.slice(2)));
+    assert.ok(!JSON.stringify(proof).includes(s.salt.slice(2)));
+    try {
+      await prover.prove(ZkKind.SelectiveDisclosure, { ...witness(s), salt: generateSecret() }, sig(s));
+      assert.fail("harus ditolak");
+    } catch (e) {
+      assert.ok(!String((e as Error).message).includes(s.secret.slice(2)));
+    }
   });
 });

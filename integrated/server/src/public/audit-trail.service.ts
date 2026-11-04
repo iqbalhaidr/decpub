@@ -31,6 +31,7 @@ const SOURCES: ContractName[] = [
   "ReviewSubmissions",
   "ReviewDecisions",
   "ActionGateway",
+  "PublicationRecords",
 ];
 
 export interface AuditEntry {
@@ -68,6 +69,10 @@ const SUMMARIZE: Record<string, (a: Args) => string> = {
   ReviewPhaseUpdated: (a) => `Fase telaah ${REVIEW_PHASE_NAMES[Number(a.previousPhase)]} → ${REVIEW_PHASE_NAMES[Number(a.newPhase)]}`,
   ReviewCommitted: (a) => `Commit telaah dari pseudonim ${short(a.reviewerPseudonym)} (isi belum terbuka)`,
   ReviewRevealed: (a) => `Reveal telaah ${short(a.reviewerPseudonym)}: ${RECOMMENDATION_NAMES[Number(a.recommendation)] ?? a.recommendation}`,
+  FinalRecorded: (a) => `DOI terbit: ${a.doi} (token #${a.doiTokenId})`,
+  DisclosureRecorded: (a) =>
+    `Pengungkapan ${roleName(a.role)}: pseudonim ${short(a.pseudonym)} ditautkan ke akun permanen ${short(a.permanentAccount)}` +
+    `${a.originalManuscriptURI ? " beserta naskah asli" : ""}`,
   ReviewBatchDecided: (a) =>
     `Keputusan batch ${a.batch}: ${a.grayZone ? "zona abu-abu" : (DECISION_OUTCOME_NAMES[Number(a.outcome)] ?? a.outcome)} ` +
     `(Reject ${a.rejectCount}, Major ${a.majorRevisionCount}, Minor ${a.minorRevisionCount}, Accept ${a.acceptAsIsCount})`,

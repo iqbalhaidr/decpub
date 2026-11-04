@@ -18,7 +18,7 @@ import { ManuscriptsRepository } from "../src/manuscripts/manuscripts.repository
 import { JournalsRepository } from "../src/journals/journals.repository.js";
 import { generateSamplePdf } from "../src/pdf/samples.js";
 import { sha256Hex } from "../src/manuscripts/intake.service.js";
-import { noSettle, openGate, testConfig } from "./helpers.js";
+import { noRecords, noSettle, openGate, testConfig } from "./helpers.js";
 
 const SID = ("0x" + "11".repeat(32)) as Hex;
 const h = (n: number) => ("0x" + n.toString(16).padStart(2, "0").repeat(32)) as Hex;
@@ -101,7 +101,7 @@ function setup(over: Partial<World> = {}) {
   const manuscripts = { bySession: () => ({ journalId: 1, ownerUserId: "penulis" }) };
   const journals = { get: () => ({ categorySlug: "ai" }) };
   const rounds = new RoundService(reader as never, invitations);
-  const progress = new ProgressService(gateway, reader as never, selection as never, invitations, manuscripts as never, journals as never, rounds, noSettle as never, openGate as never);
+  const progress = new ProgressService(gateway, reader as never, selection as never, invitations, manuscripts as never, journals as never, rounds, noSettle as never, openGate as never, noRecords as never);
   const fn = (name: string) => calls.filter((c) => c.fn === name);
   return { w, progress, calls, fn, seat, people, invitations, selectionCalls, verdict, rounds };
 }
@@ -373,7 +373,7 @@ describe("ProgressService.closePhase (admin)", () => {
     // gateway yang gagal pada updateStatus
     const failing = new Proxy({}, { get: (_t, fn: string) => async () => { if (fn === "updateStatus") throw new Error("revert"); return { txHash: h(1), blockNumber: 1 }; } });
     const reader = { getSession: async () => ({ statusValue: t.w.status, status: "x" }), latestBatchNumber: async () => 1, decision: async () => null, assignmentOwner: async (_s: Hex, c: Hex) => t.w.owners.get(c.toLowerCase()) ?? null, reviewPhase: async () => ({ value: ReviewPhase.Commit, name: "Commit" }), hasCommit: async () => false, hasReveal: async () => false };
-    const p = new ProgressService(failing as never, reader as never, {} as never, t.invitations, { bySession: () => ({}) } as never, {} as never, new RoundService(reader as never, t.invitations), noSettle as never, openGate as never);
+    const p = new ProgressService(failing as never, reader as never, {} as never, t.invitations, { bySession: () => ({}) } as never, {} as never, new RoundService(reader as never, t.invitations), noSettle as never, openGate as never, noRecords as never);
     await assert.rejects(p.closePhase(SID), /revert/);
     assert.equal(t.invitations.forBatch(SID, 1).length, 3, "undangan tidak tertinggal voided");
   });

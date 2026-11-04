@@ -10,6 +10,7 @@
  *   UnderReview / Commit     semua sudah commit  -> fase Reveal
  *   UnderReview / Reveal     semua sudah reveal  -> fase Closed, decideBatch
  *   Accepted                                     -> Published
+ *   Published                                    -> DOI terbit (M8: `PublicationRecords.recordFinal`), lalu penyelesaian insentif
  *   Published / Rejected, ada keputusan          -> penyelesaian insentif otomatis (M7): QoS, bobot, `executeDistribution`
  *
  * Gerbang escrow (M7): bila ESCROW_REQUIRED dan APC belum terikat, atau APC sudah di-refund, sesi tidak dimajukan.
@@ -41,10 +42,11 @@ import { GatewayService } from "../chain/gateway.service.js";
 import { EscrowGate } from "../escrow/escrow-gate.js";
 import { IncentiveService } from "../incentive/incentive.service.js";
 import { SessionReader } from "../chain/session-reader.service.js";
+import { RecordsService } from "../publication/records.service.js";
 import { JournalsRepository } from "../journals/journals.repository.js";
 import { ManuscriptsRepository } from "../manuscripts/manuscripts.repository.js";
 import { InvitationsRepository, type Invitation } from "../selection/invitations.repository.js";
-import { SelectionService } from "../selection/selection.service.js";
+import { InsufficientCandidatesError, SelectionService } from "../selection/selection.service.js";
 import { RoundService } from "./rounds.service.js";
 
 export interface ProgressResult {
@@ -71,6 +73,7 @@ export class ProgressService {
     private readonly rounds: RoundService,
     private readonly incentive: IncentiveService,
     private readonly gate: EscrowGate,
+    private readonly records: RecordsService,
   ) {}
 
   /** Menjalankan langkah sistem untuk satu sesi; permintaan bersamaan untuk sesi yang sama berurutan. */
@@ -101,7 +104,14 @@ export class ProgressService {
           progressed = await this.ensureEditorInvited(sessionId, actions);
           break;
         case PublicationStatus.AssigningReviewers:
-          progressed = await this.driveReviewerSelection(sessionId, actions, blocked);
+          try {
+            progressed = await this.driveReviewerSelection(sessionId, actions, blocked);
+          } catch (e) {
+            if (!(e instanceof InsufficientCandidatesError)) throw e;
+            // Putusan editor sudah tercatat; seleksi menunggu kandidat cukup (verifikasi bidang oleh admin, dsb.).
+            blocked.reason = `Pemilihan penelaah tertunda: ${e.message}`;
+            progressed = false;
+          }
           break;
         case PublicationStatus.UnderReview:
           progressed = await this.driveReview(sessionId, actions, blocked);
@@ -110,6 +120,10 @@ export class ProgressService {
           progressed = await this.publish(sessionId, actions);
           break;
         case PublicationStatus.Published:
+          // DOI dulu, lalu insentif: keduanya tidak boleh menggagalkan status Published yang sudah tercatat.
+          await this.issueDoi(sessionId, actions, blocked);
+          progressed = await this.settle(sessionId, actions, blocked);
+          break;
         case PublicationStatus.Rejected:
           progressed = await this.settle(sessionId, actions, blocked);
           break;
@@ -426,6 +440,18 @@ export class ProgressService {
     } catch (e) {
       const msg = (e as { response?: { message?: string } }).response?.message ?? (e as Error).message;
       actions.push(`APC di-refund; sesi gagal ditutup (${msg})`);
+    }
+  }
+
+  /** Menerbitkan DOI NFT untuk sesi Published. Idempoten; kegagalan dilaporkan di `blocked` dan dicoba lagi pada `advance` berikutnya. */
+  private async issueDoi(sessionId: Hex, actions: string[], blocked: { reason: string | null }): Promise<void> {
+    try {
+      const { final, issued } = await this.records.ensureFinal(sessionId);
+      if (issued) actions.push(`P08: DOI ${final.doi} terbit (token #${final.doiTokenId}), rujukan final dicatat di PublicationRecords`);
+    } catch (e) {
+      const msg = (e as { response?: { message?: string } }).response?.message ?? (e as Error).message;
+      blocked.reason = `Penerbitan DOI tertunda: ${msg}`;
+      this.log.warn(`Sesi ${sessionId}: ${blocked.reason}`);
     }
   }
 

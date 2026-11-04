@@ -29,6 +29,8 @@ const CONTRACTS: Record<string, string> = {
   EscrowPool: 'hugo',
   IncentiveEngine: 'hugo',
   ReputationSBT: 'hugo',
+  DOIToken: 'roihan',
+  PublicationRecords: 'records',
 };
 
 let body =

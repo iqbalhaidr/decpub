@@ -4,7 +4,7 @@ Diperbarui di akhir setiap sesi.
 
 ## Terakhir diperbarui
 
-2026-11-05, sesi M7.
+2026-11-05, sesi M8.
 
 ## Selesai
 
@@ -108,9 +108,32 @@ Diperbarui di akhir setiap sesi.
   - **Tes:** `npm test` lulus seluruhnya: kontrak 252, shared 22, **incentive-core 17** (+9: QoS Indonesia/Inggris, preset satu sumber, kebijakan disalin, `computeSettlement`), storage-sim 19, **zk-sim 39** (+9: bucket dan klaim, termasuk tak bisa meminjam reputasi orang lain dan klaim ganda), **server 112** (+22: repositori, gerbang, penyelesaian dengan chain/storage palsu termasuk batas 10 baris, reputasi, penutupan sesi setelah refund). `npm run typecheck` bersih. Regresi `demo:m1`-`demo:m6` dan `check-wiring` (83/83) lulus; `demo:m3`-`demo:m5` kini berjalan dengan `ESCROW_REQUIRED=true` (mengikat APC otomatis), sehingga penyelesaian insentif otomatis ikut teruji di semua jalur M5 (distribusi ke 6, 6, 5, 2, 3 pseudonim, tanpa pesan "tertunda").
   - **Uji mutasi** (karena hasil lulus mudah): mengabaikan kebijakan terkunci membuat 2 tes gagal; q1 dengan tanda terbalik 1 tes; menghapus batas 10 baris 1 tes; menonaktifkan gerbang escrow di `PipelineService.advance` membuat `demo:m7` gagal pada 4 pemeriksaan. Semua dipulihkan.
 
+- **M8 selesai.** Semua kriteria terpenuhi dan dijalankan sendiri (`npm run demo:m8`, node Hardhat sungguhan, storage-sim, zk-sim, dan server sebagai proses nyata, tanpa mock). Lulus berulang kali pada chain yang sama (hitungan di demo relatif terhadap keadaan awal chain), termasuk setelah disclosure sesi revisi ditambahkan:
+  - **Kontrak** (solc 0.8.28, optimizer 200 runs):
+    - `roihan/DOIToken.sol` disalin **tanpa perubahan** dari Roihan (pragma `^0.8.24` terkompilasi dengan 0.8.28 dan OpenZeppelin 5.6.1; ini menutup butir "kompatibilitas pragma belum diuji"). `roihan/DOILib.sol` diekstrak dari `PublicationRegistry.sol:26-68` apa adanya.
+    - `records/PublicationRecords.sol` (baru): `recordFinal(sessionId)` (operator; sesi harus `Published`, sekali per sesi) menerbitkan DOI `10.55121/<tahun>.<chainId>.<nomor urut>.<revisi+1>` dan memint NFT `DOIToken` **ke kontrak itu sendiri**, dengan `tokenURI` = metadata publik anonim; menyimpan hash dan URI naskah asli/anonim/metadata dari sesi. `recordDisclosure(sessionId, role, akunPermanen, hashAtribut, uriNaskahAsli, bukti)` (operator) hanya menerima peran Author (0) dan Editor (2), mengambil pseudonim dari sesi (bukan dari pemanggil), memeriksa bukti `SELECTIVE_DISCLOSURE` lewat `ActionGateway.verifier()`, dan menolak pengungkapan ganda. Peran Penelaah ditolak `RoleNotDisclosable`. Enumerasi artikel lewat `recordedSessionCount/At`. `PublicationSessions` tidak diubah.
+    - Wiring: `Integrated.ts` men-deploy keduanya dan memberi `MINTER_ROLE` hanya ke `PublicationRecords`. `check-wiring`: **95/95** (12 baru: operator, sumber verifier, tiga alamat, deployer admin DOIToken, minter hanya PublicationRecords, operator/deployer/akun acak bukan minter). Diuji negatif: `MINTER_ROLE` dicabut, pemeriksa gagal (94/95, kode 1), lalu dipulihkan.
+  - **`packages/shared`**: `disclosure.ts` (`attributesHash` hanya atribut terpilih, `null` bagi yang tidak dipilih; `disclosureSignals`; `DISCLOSABLE_ROLES` tanpa penelaah), `comments.ts` (`commentHash`), `signals.selectiveDisclosure`, ABI 16 kontrak.
+  - **zk-sim**: pemeriksa `SELECTIVE_DISCLOSURE` (tidak ada lagi jenis bukti yang 501): peran Author/Editor saja, pseudonim = turunan secret dan memang pseudonim peran itu di sesi, akun permanen terdaftar dengan commitment dari secret yang sama, `attributesHash` dihitung ulang dari atribut + salt. Tanpa `PublicationSessions` terkonfigurasi: 501 `DISCLOSURE_NOT_CONFIGURED`.
+  - **Server** (`server/src/publication/`, migrasi v5: `disclosures`, `comments`):
+    - `RecordsService`, `PublicationRepository`, `DisclosureService`, `CommentsService`, `ArticlesService`, `ArticlesController`. `ProgressService` menerbitkan DOI saat `Published` (`issueDoi`, idempoten; kegagalannya masuk `blocked` dan dicoba lagi pada `advance` berikutnya, tidak membatalkan status).
+    - **Disclosure** (`POST /flows/disclosure`, JWT): urutan sengaja (naskah asli tidak bisa ditarik setelah publik): (1) otorisasi pemilik naskah / editor yang menerima undangan, akun permanen = akun terdaftar pengguna; (2) bukti diperiksa di verifier on-chain (view); (3) keutuhan: komitmen metadata di storage privat = `metadataHash` on-chain, sha256 naskah asli = `originalManuscriptHash`, atribut terpilih = data pengajuan; (4) `recordDisclosure` dengan CID yang dihitung dari isi; (5) baru kemudian unggah ke storage publik. Unggahan yang gagal diulang pada permintaan berikutnya tanpa mencatat ulang.
+    - **Publik**: `GET /articles`, `/articles/:id` (DOI, hash, pengungkapan beserta `attributesVerified` dan `sha256MatchesOnChain`), `/articles/:id/open-review` (editorial + telaah per batch, isi diambil dari storage dan hash-nya dicocokkan), `/articles/:id/comments`, `POST` komentar (JWT), `GET /stats`, `GET /me/contributions`. Audit trail memuat `FinalRecorded` dan `DisclosureRecorded`; proyeksi `/public/sessions/:id` memuat `publication`.
+    - `ProgressService`: kandidat penelaah kurang (`InsufficientCandidatesError`) kini menjadi langkah tertunda (`blocked`), bukan 409 pada permintaan editor (lihat temuan).
+  - **Hasil `demo:m8`** (semua OK; 84 pemeriksaan):
+    - A. Verifikasi bidang menentukan kandidat: penelaah baru tanpa kredensial bidang, permintaannya di antrian admin (penulis dan penelaah 403). Dengan hanya 2 kandidat terverifikasi, putusan Proceed editor tercatat tetapi pemilihan **tertunda** ("tersedia 2 dari 3"), tanpa batch dan tanpa undangan bagi yang belum diverifikasi. Admin menyetujui, kredensial bidang terbit, `progress` memilih batch 1 yang memuat penelaah baru.
+    - B. DOI terbit saat Published (`10.55121/2026.31337.N.1`); NFT dimiliki `PublicationRecords`, `tokenURI` = metadata anonim; hash final = hash sesi; naskah anonim terunduh dengan hash on-chain. Sebelum disclosure, detail dan daftar artikel tanpa nama, surel, afiliasi, atau alamat permanen penulis; penelaah ditandai tidak diungkap.
+    - C. Open review: laporan editorial dan tiga telaah dengan hash cocok, hanya pseudonim per-putaran (sama dengan yang diturunkan penelaah dari secret), tanpa surel/nama.
+    - D. Komentar: dua komentar, hash cocok dengan event `CommentPosted` on-chain (isi tidak ada di chain), nama tampilan `pembaca-xxxxxx` berbeda, tanpa surel; tanpa login 401, kosong 400, artikel tak ada 404.
+    - E. Disclosure. Ditolak: secret salah (`NOT_SESSION_PARTY`; dan `PSEUDONYM_MISMATCH` bila pseudonim asli ada di sinyal), penulis lain, akun permanen orang lain (`NOT_ACCOUNT_OWNER`), bukti sah dikirim lewat akun orang lain (404), penelaah (`ROLE_NOT_DISCLOSABLE` di zk-sim, 400 di API, `RoleNotDisclosable` di kontrak walau dari operator), atribut palsu dan surel palsu (`ATTRIBUTE_MISMATCH`), bukti bertanda tangan bukan attestor dan atribut diganti sesudah bukti (`INVALID_PROOF`), sesi belum terbit (`NOT_PUBLISHED`), pilihan kosong, pengungkapan ganda. Semua percobaan gagal tidak mengubah apa pun on-chain. Yang sah: nama + afiliasi (surel **tidak** dipilih dan tidak ada di halaman mana pun) + naskah asli; `attributesVerified`; pseudonim on-chain = pseudonim Author sesi; sha256 berkas unduhan = `originalManuscriptHash` dan CID = yang tercatat. Editor membuka diri secara opsional (tanpa naskah; surel harus surel akunnya). Penelaah tetap anonim: tak ada surel atau alamat permanen penelaah di halaman publik mana pun.
+    - F. Sesi kedua dengan revisi Minor: DOI **versi 2** (`...N.2`), nomor urut berbeda, 6 pseudonim penelaah berbeda untuk 3 orang di dua putaran. Disclosure pada sesi yang direvisi membuka naskah revisi terakhir (hash on-chain setelah revisi), bukan versi lama.
+    - G. Statistik agregat (angka saja), kontribusi sendiri (jumlah saja, login wajib). Pemindaian 93 transaksi: tak ada identitas penelaah, penulis yang tak mengungkap, atau secret siapa pun; alamat permanen penulis dan editor yang mengungkap hanya muncul di transaksi pengungkapan mereka sendiri (3 transaksi).
+  - **Tes:** `npm test` lulus seluruhnya: kontrak **265** (+13 `PublicationRecords.test.ts`: penerbitan, nomor DOI, bukan-Published, sekali per sesi, hak operator, izin minter, komentar, disclosure sah/ganda/palsu/penelaah/editor), shared **28** (+6), incentive-core 17, storage-sim 19, zk-sim **48** (+9 `SELECTIVE_DISCLOSURE`), server **127** (+15 `m8.test.ts`: disclosure, komentar, kandidat tertunda). `npm run typecheck` bersih. Regresi `demo:m1`-`demo:m7` dan `check-wiring` (95/95) lulus di deployment baru.
+  - **Uji mutasi** (karena hasil lulus mudah): tanpa cek kepemilikan penulis, tanpa cek kebenaran atribut, tanpa cek hash naskah asli, dan unggah-sebelum-catat masing-masing membuat 1 tes server gagal; di kontrak: peran Penelaah diizinkan, pengungkapan ganda, DOI sebelum Published, dan verifikasi bukti dilewati masing-masing membuat tes gagal; seleksi tanpa syarat bidang terverifikasi membuat `demo:m8` gagal (zk-sim `ASSIGNMENT` menolaknya sebagai lapis kedua). Semua dipulihkan.
+
 ## Tersisa
 
-Milestone berikutnya: **M8, pelengkap Roihan dan P08** (`DOIToken`, `DOILib`, `PublicationRecords`, selective disclosure, open review, komentar, antrian verifikasi bidang). Titik sambung DOI: `ProgressService.publish`. M8 sampai M13 belum dikerjakan.
+Milestone berikutnya: **M9, frontend polos dan halaman publik** (salin `$ROIHAN/frontend`, strip-down sesuai `arsitektur.md` bagian 12; halaman `/`, `/login`, `/register`, `/profile`, `/journals`, `/tracker`, `/articles`, `/incentive/[id]`). Endpoint yang dibutuhkan halaman artikel sudah ada sejak M8 (`/articles*`, `/stats`). M9 sampai M13 belum dikerjakan. Pekerjaan backend yang belum ada: tenggat otomatis.
 
 Dari M7 yang belum dikerjakan (lihat Masalah terbuka): tenggat otomatis fase telaah dan timeout refund otomatis, penutupan sesi `Incomplete` oleh penulis.
 
@@ -284,6 +307,31 @@ Tidak ada yang bertentangan dengan `arsitektur.md` atau `analisis/` pada tingkat
 - **Persona demo pertama saya keliru dua kali**, dan itu informatif: R2 pertama (kualitas sedang) mendapat kredit sigmoid 0,245, tepat di bawah 0,25, sehingga tidak bisa mengklaim reputasi sama sekali; dan q2 R2 kedua (0,584) lebih tinggi dari R1 (0,526) karena kosinus frekuensi kata hanya mengukur tumpang tindih kosakata, bukan mutu telaah. q2/q3 simulasi memang hanya heuristik; angka kuantitatif insentif tidak boleh dikutip sebagai kualitas telaah nyata.
 - `pkill -f` masih mematikan shell sendiri (catatan M3/M5); node Hardhat dihentikan lewat PID di akhir sesi ini. Nyalakan ulang `npm run chain` lalu `npm run deploy:local` sebelum demo berikutnya (jam chain di node lama sudah maju lebih dari 180 hari oleh `demo:m6`).
 
+## Temuan di lapangan (M8)
+
+Tidak ada yang bertentangan dengan `arsitektur.md` atau `analisis/`, sehingga tidak ada yang saya hentikan untuk ditanyakan. Keputusan kecil yang saya ambil sendiri (semuanya reversibel; mohon dikoreksi bila tidak setuju) dan dua hal yang saya minta Anda putuskan sebelum M9 (tidak menghalangi M9).
+
+**Keputusan Anda (2026-11-05): butir 1 dan 2 diterima sebagaimana adanya (sederhana), dicatat sebagai batasan di `arsitektur.md` bagian 13.** Teks asli pertanyaan dipertahankan sebagai catatan alasan.
+
+1. **"Kontribusi agregat" dikerjakan sebagai angka platform + milik sendiri, bukan profil publik per anggota.** Laporan Ciko (hlm. 85) menyebut profil publik dengan kontribusi agregat tanpa menyebut publikasi; `arsitektur.md` hanya menulis "kontribusi agregat" di kolom server tahap 5.9. Saya membuat `GET /stats` (jumlah artikel, telaah, pengungkapan, komentar; tanpa sesi/orang/pseudonim) dan `GET /me/contributions` (jumlah milik sendiri, wajib login). Profil publik per anggota (mis. "penelaah X: 12 telaah") **tidak** dibuat karena menautkan identitas ke tingkat aktivitas dan tidak ada di kriteria M8. Opsi: (a) biarkan (sekarang); (b) tambah profil publik atas pilihan anggota (opt-in), dengan bukti `proveContribution` simulasi seperti di tabel zk Ciko. Saya sarankan (a) sampai frontend selesai.
+2. **Nama editor saat disclosure adalah klaim sendiri.** Akun editor tidak punya nama di sistem (hanya surel), jadi atribut `name` dan `affiliation` editor tidak bisa dicocokkan dengan data mana pun; hanya `email` yang dicocokkan dengan surel akun. Untuk penulis semua atribut dicocokkan dengan data pengajuan. Bila nama editor harus terverifikasi, perlu data profil editor (pekerjaan akun, bukan M8).
+
+**Keputusan kecil:**
+
+- **DOI NFT dimiliki `PublicationRecords`, bukan akun penulis.** `DOIToken.mint(to, uri)` di Roihan memint ke dompet penulis; di sini itu menaut dompet ke naskah sebelum penulis memilih mengungkap. Konsekuensi: tidak ada "kepemilikan DOI" oleh penulis di ledger; kepemilikan dinyatakan lewat `DisclosureRecorded` bila ia mengungkap. `PublicationRecords` implementasi `IERC721Receiver` agar `_safeMint` ke kontrak berhasil.
+- **Komentar diposting relayer.** `DOIToken.postComment` mencatat `msg.sender` sebagai `reader`; Roihan memakai dompet pembaca (MetaMask). Keputusan C3 membatasi MetaMask pada setor APC dan pembaca di sini tidak punya dompet, jadi operator yang memosting dan `reader` di event selalu operator. Atribusi pembaca hanya lewat nama tampilan `pembaca-xxxxxx` (hash akun + artikel, berbeda antarartikel). Hash komentar mengikat DOI, nama, isi, dan nonce; `verified` pada daftar komentar = hash dihitung ulang cocok dengan event. Komentar yang diposting langsung ke chain oleh pihak lain tampil tanpa isi dan `verified: false`.
+- **Bukti `SELECTIVE_DISCLOSURE` tidak menjamin kebenaran atribut.** Bukti mengikat pemilik pseudonim, akun permanen, dan hash atribut; kebenaran atribut dijamin server (tepercaya) dengan mencocokkan data privat, yang sendiri dicocokkan dengan hash on-chain (`metadataHash`, `originalManuscriptHash`). Sirkuit nyata nanti bisa membuktikan pembukaan komitmen metadata di dalam bukti.
+- **Hanya atribut terpilih yang masuk hash dan DB.** `attributesHash` memakai `null` untuk atribut tak terpilih, salt dipublikasikan agar siapa pun bisa menghitung ulang. Surel penulis tidak ditampilkan kecuali dipilih.
+- **Naskah asli dibuka lewat CID yang dihitung dulu** (`cidOf`), dicatat on-chain, baru diunggah. Bila unggahan gagal, `POST /flows/disclosure` yang sama menyelesaikannya tanpa mencatat ulang.
+- **Disclosure memakai identitas dan naskah revisi terakhir** (`refs.*(manuscriptId, session.revisionCount)`); diuji pada sesi yang direvisi.
+- **Pencabutan tidak ada.** Pengungkapan satu kali per (sesi, peran), tidak bisa dicabut atau diubah; tautan pseudonim ke akun permanen publik selamanya. UI M10 harus memperingatkan ini sebelum penulis memilih.
+- **Kandidat penelaah kurang menjadi langkah tertunda, bukan 409.** Sebelumnya `POST /flows/editorial-screening` mengembalikan 409 ketika seleksi gagal padahal putusan editor sudah tercatat on-chain (editor melihat galat atas aksi yang berhasil). Kini `InsufficientCandidatesError` ditangkap `ProgressService` dan dilaporkan di `progress.blocked`; seleksi lanjut lewat `POST /system/sessions/:id/progress` (admin menyetujui bidang, penelaah baru mendaftar). Ini mengubah perilaku M4-M5 pada kasus langka itu; `demo:m3`-`m7` tetap lulus.
+- **Daftar artikel adalah semua sesi di `PublicationRecords` (chain-wide).** Bila DB/storage server dibuat ulang di atas chain yang sama (seperti demo berulang), artikel lama tetap terdaftar tetapi judulnya "(metadata tidak terjangkau)" karena storage baru. Di deployment berumur panjang (DB dan storage persisten) ini tidak terjadi; `demo:m8` menghitung secara relatif untuk itu.
+- **Statistik membaca ulang chain per sesi** (reveal per batch) pada setiap permintaan; cukup untuk puluhan artikel, perlu cache bila banyak (sama dengan catatan audit trail M4).
+- **Open review menampilkan semua batch**, termasuk putaran sebelum revisi dan batch tambahan zona abu-abu, per batch dengan keputusannya. Proyeksi `/public/sessions/:id` tetap hanya ronde terakhir.
+- **Editor yang membuka diri hanya bila ia penerima undangan yang sudah menerima** (`accepted_at`), bukan editor lain yang kebetulan punya peran editor.
+- Keadaan chain lokal: `demo:m6` memajukan jam chain > 180 hari, sehingga tahun di DOI bisa melompat (tahun diambil dari timestamp blok); format tetap sama.
+
 ## Masalah terbuka
 
 - Kode Roihan belum pernah dijalankan. Kontrak Hugo asli tidak dijalankan; yang diuji adalah kontrak turunannya (M6). Pembandingan langsung dengan `Hugo/` asli (mis. `npm run test:contracts` Hugo) belum dilakukan; angka Lampiran B direproduksi dari data dan rumusnya.
@@ -295,7 +343,10 @@ Tidak ada yang bertentangan dengan `arsitektur.md` atau `analisis/` pada tingkat
 - Tiga keputusan M6 sudah dijawab (terima kondisi sekarang), bukan lagi terbuka. Refund `Incomplete` tetap hanya lewat timeout; penutupan sesi `Incomplete` oleh penulis (selain timeout) tidak ada.
 - Empat batasan M7 (pembulatan klaim reputasi ke bawah, 10 pseudonim terbaru, kebijakan terkunci hanya di server, tanpa tenggat otomatis) sudah disetujui dan tercatat di arsitektur bagian 13; bukan lagi terbuka.
 - Tidak ada pembatasan laju (rate limit) di endpoint tanpa JWT (`/escrow/*`, `/flows/*`, `/incentive/*`); bukan masalah untuk demo, perlu bila dipakai di luar lokal.
-- Kompatibilitas pragma `^0.8.24` kontrak Roihan dengan solc 0.8.28 belum diuji (M8). Kontrak Hugo ditulis ulang dengan pragma `^0.8.28` dan dikompilasi di M6.
+- Kompatibilitas pragma `^0.8.24` kontrak Roihan: **tertutup di M8** (`DOIToken` dan `DOILib` terkompilasi di solc 0.8.28 dan OpenZeppelin 5.6.1). Kontrak Hugo ditulis ulang dengan pragma `^0.8.28` dan dikompilasi di M6.
+- Dua keputusan M8 (bentuk "kontribusi agregat", nama editor tak terverifikasi) sudah dijawab (terima kondisi sekarang), bukan lagi terbuka.
+- Pengungkapan identitas tidak bisa dicabut (satu kali, permanen di ledger). Perlu peringatan jelas di UI M10.
+- `DOIToken.postComment` oleh relayer: `reader` di event selalu operator (lihat temuan M8).
 - M13 butuh RPC Sepolia, kunci deployer baru, dan ETH testnet dari pengguna.
 
 ## Cara menjalankan
@@ -304,8 +355,8 @@ Tidak ada yang bertentangan dengan `arsitektur.md` atau `analisis/` pada tingkat
 cd integrated
 npm install
 npm run chain            # terminal 1, tetap hidup
-npm run deploy:local     # terminal 2 (9 kontrak Ciko + verifier + gateway + EscrowPool, ReputationSBT, IncentiveEngine)
-npm run check-wiring     # 83 pemeriksaan
+npm run deploy:local     # terminal 2 (9 kontrak Ciko + verifier + gateway + EscrowPool, ReputationSBT, IncentiveEngine + DOIToken, PublicationRecords)
+npm run check-wiring     # 95 pemeriksaan
 npm run test:contracts
 
 npm run storage          # M1: simulator storage di http://127.0.0.1:8081, tetap hidup
@@ -327,6 +378,7 @@ npm run demo:m5          # demo/regresi M5: revisi Minor/Major, zona abu-abu, de
 npm run test:incentive   # M6: incentive-core (pipeline Hugo, model referensi bilangan bulat)
 npm run demo:m6          # demo/regresi M6: escrow, refund, timeout, D1 = Lampiran B, klaim, decay (prasyarat sama; zk-sim nyala sendiri; memajukan jam chain > 180 hari)
 npm run demo:m7          # demo/regresi M7: APC di muka, imbalan sesuai kualitas, hash laporan QoS = on-chain, klaim, reputasi per epoch, q4 sesi kedua, refund (prasyarat sama; memajukan jam chain beberapa hari)
+npm run demo:m8          # demo/regresi M8: verifikasi bidang menentukan kandidat, DOI, artikel anonim, open review, komentar, selective disclosure, revisi + DOI versi 2 (prasyarat sama)
 ```
 
 Target akhir: `cd integrated && npm install && npm run demo`.

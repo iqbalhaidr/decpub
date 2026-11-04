@@ -28,6 +28,12 @@ import { UsersRepository } from "./users/users.repository.js";
 import { VerificationController } from "./verification/verification.controller.js";
 import { VerificationService } from "./verification/verification.service.js";
 import { Reflector } from "@nestjs/core";
+import { ArticlesController } from "./publication/articles.controller.js";
+import { ArticlesService } from "./publication/articles.service.js";
+import { CommentsService } from "./publication/comments.service.js";
+import { DisclosureService } from "./publication/disclosure.service.js";
+import { PublicationRepository } from "./publication/publication.repository.js";
+import { RecordsService } from "./publication/records.service.js";
 import { HttpZkProver } from "@decpub/shared";
 import { AssignmentsController } from "./flows/assignments.controller.js";
 import { EditorialService } from "./flows/editorial.service.js";
@@ -66,6 +72,7 @@ export class AppModule {
         FlowsController,
         AssignmentsController,
         IncentiveController,
+        ArticlesController,
         PublicController,
       ],
       providers: [
@@ -107,6 +114,11 @@ export class AppModule {
         ReputationService,
         EscrowGate,
         EscrowService,
+        RecordsService,
+        PublicationRepository,
+        CommentsService,
+        DisclosureService,
+        ArticlesService,
       ],
       exports: [APP_CONFIG],
     };

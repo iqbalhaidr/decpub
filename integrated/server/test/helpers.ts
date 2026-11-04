@@ -41,3 +41,5 @@ export function testConfig(over: Partial<AppConfig> = {}): AppConfig {
 /** Pengganti gerbang escrow dan penyelesaian insentif untuk tes logika alur (tanpa chain). */
 export const openGate = { check: async () => ({ proceed: true as const, state: 0 }) };
 export const noSettle = { settle: async () => ({ outcome: "skipped" as const, reason: "tes" }), lockPolicyFor: () => undefined };
+/** RecordsService palsu untuk tes alur: DOI "terbit" tanpa chain. */
+export const noRecords = { ensureFinal: async (sid: string) => ({ final: { doi: "10.55121/tes", doiTokenId: 0, sessionId: sid }, issued: null }) };

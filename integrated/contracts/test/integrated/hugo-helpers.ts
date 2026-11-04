@@ -160,6 +160,8 @@ export type DriveOptions = {
   stopBeforeDecision?: boolean;
   /** Ikuti keputusan sampai Published bila Accepted. */
   publish?: boolean;
+  /** Sesi sudah di UnderEditorialScreening (P03 lulus, editor ditugaskan): lewati pengecekan awal. */
+  fromScreening?: boolean;
 };
 
 /**
@@ -172,7 +174,8 @@ export async function driveToDecision(sys: System, sessionId: Hex, opts: DriveOp
   const reveals = opts.reveals ?? recs.map(() => true);
   const ctx = { chainId: sys.chainId, gateway: sys.gateway.address };
 
-  await toAssigning(sys, sessionId);
+  if (opts.fromScreening) await sys.gateway.write.updateStatus([sessionId, Status.AssigningReviewers], op);
+  else await toAssigning(sys, sessionId);
 
   const people = recs.map(() => newPerson());
   const salts = people.map((_, i) => b32(keccak256(toHex(`${sessionId}:salt:${i}`)).slice(2, 20)));

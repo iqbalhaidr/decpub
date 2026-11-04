@@ -10,3 +10,5 @@ export * from "./status.js";
 export * from "./selection.js";
 export * from "./documents.js";
 export * from "./reputation.js";
+export * from "./disclosure.js";
+export * from "./comments.js";

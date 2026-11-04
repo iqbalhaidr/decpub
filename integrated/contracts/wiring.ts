@@ -61,3 +61,10 @@ export const INTEGRATED_CONTRACTS = ['SimulatedZkVerifier', 'ActionGateway'] as 
  * `IncentiveEngine.operator` = operator. Parameter di `hugo-params.ts`.
  */
 export const HUGO_CONTRACTS = ['EscrowPool', 'ReputationSBT', 'IncentiveEngine'] as const;
+
+/**
+ * Kontrak pasca-publikasi (M8). `DOIToken` (Roihan, AccessControl) dan `PublicationRecords` (baru).
+ * Izinnya: `PublicationRecords` memegang `MINTER_ROLE` di `DOIToken` (satu-satunya yang boleh memint DOI),
+ * `PublicationRecords.operator` = operator. Admin `DOIToken` = deployer lewat `DEFAULT_ADMIN_ROLE`.
+ */
+export const ROIHAN_CONTRACTS = ['DOIToken', 'PublicationRecords'] as const;

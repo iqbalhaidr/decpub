@@ -6,7 +6,7 @@ import { hugoParams } from '../../hugo-params.js';
 
 /**
  * Deploy sistem terintegrasi: 9 kontrak Ciko, `SimulatedZkVerifier`, `ActionGateway` (M2),
- * dan `EscrowPool`, `ReputationSBT`, `IncentiveEngine` (M6).
+ * `EscrowPool`, `ReputationSBT`, `IncentiveEngine` (M6), dan `DOIToken`, `PublicationRecords` (M8).
  *
  * Izin yang dipasang (lihat `wiring.ts`):
  *  1. `ActionGateway` menjadi session manager di 8 kontrak Ciko. Operator (server/relayer)
@@ -83,5 +83,11 @@ export default buildModule('IntegratedModule', (m) => {
   m.call(escrowPool, 'setEngine', [incentiveEngine], { id: 'engine_EscrowPool' });
   m.call(reputationSBT, 'setEngine', [incentiveEngine], { id: 'engine_ReputationSBT' });
 
-  return { ...ciko, zkVerifier, gateway, escrowPool, reputationSBT, incentiveEngine };
+  // ---- Roihan dan pasca-publikasi (M8)
+  // DOIToken dimint hanya oleh PublicationRecords (MINTER_ROLE); PublicationRecords membaca verifier lewat gateway.
+  const doiToken = m.contract('DOIToken', []);
+  const publicationRecords = m.contract('PublicationRecords', [ciko.publicationSessions, doiToken, gateway, operator]);
+  m.call(doiToken, 'grantRole', [m.staticCall(doiToken, 'MINTER_ROLE'), publicationRecords], { id: 'minter_DOIToken' });
+
+  return { ...ciko, zkVerifier, gateway, escrowPool, reputationSBT, incentiveEngine, doiToken, publicationRecords };
 });

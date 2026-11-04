@@ -376,7 +376,7 @@ describe("ProgressService.closeAfterRefund", () => {
       },
     }) as never;
     const reader = { getSession: async () => ({ statusValue: status, status: String(status) }) };
-    const p = new ProgressService(gateway, reader as never, {} as never, {} as never, {} as never, {} as never, {} as never, {} as never, {} as never);
+    const p = new ProgressService(gateway, reader as never, {} as never, {} as never, {} as never, {} as never, {} as never, {} as never, {} as never, {} as never);
     return { p, calls };
   }
   const S = PublicationStatus;

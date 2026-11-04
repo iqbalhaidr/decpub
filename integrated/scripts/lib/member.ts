@@ -17,6 +17,8 @@ import {
   reputationTier,
   signClaimReward,
   HttpZkProver,
+  attributesHash,
+  disclosureSignals,
   Role,
   ZkKind,
   computeCommitHash,
@@ -35,6 +37,8 @@ import {
   signRevision,
   signScreening,
   signals,
+  type DisclosableRole,
+  type DisclosureAttributes,
   type RecommendationValue,
   type RoleValue,
   type StorageProvider,
@@ -361,6 +365,49 @@ export class Member {
       if (bound.advance && "steps" in bound.advance) submission.advance = bound.advance;
     }
     return { intake, pseudonym: ps, signed, submission, bound };
+  }
+
+  // ------------------------------------------------------------ pasca-publikasi (P08, M8)
+
+  /**
+   * Selective disclosure: bukti dari zk-sim (witness = secret, peran, atribut terpilih, salt), lalu `POST /flows/disclosure`.
+   * `role` 0 = penulis, 2 = editor. `opts.secret` memalsukan pemilik (uji negatif); `opts.account` mengganti akun permanen.
+   */
+  async disclose(
+    sessionId: Hex,
+    role: DisclosableRole,
+    attributes: DisclosureAttributes,
+    opts: { includeManuscript?: boolean; secret?: Hex; account?: Address; salt?: Hex; postAs?: Member; tamper?: (body: Record<string, any>) => void } = {},
+  ) {
+    const secret = opts.secret ?? this.secret;
+    const account = opts.account ?? permanentAccountAddress(this.secret);
+    const salt = opts.salt ?? (`0x${randomBytes(32).toString("hex")}` as Hex);
+    const pseudonym = deriveEphemeral(secret, sessionId, role, 0).pseudonym;
+    const hash = attributesHash(sessionId, role, attributes, salt);
+    const proof = await this.prover.prove(
+      ZkKind.SelectiveDisclosure,
+      { secret, role, attributes, salt },
+      disclosureSignals(sessionId, pseudonym, account, hash),
+    );
+    const body: Record<string, any> = {
+      sessionId,
+      role,
+      permanentAccount: account,
+      attributes,
+      salt,
+      includeManuscript: opts.includeManuscript ?? false,
+      proof: proof.proof,
+    };
+    opts.tamper?.(body);
+    return (opts.postAs ?? this).api.post<{ sessionId: Hex; role: number; attributes: DisclosureAttributes; attributesHash: Hex; txHash: Hex; originalManuscript: { cid: string; sha256: Hex; uploaded: boolean } | null }>(
+      "/flows/disclosure",
+      body,
+    );
+  }
+
+  /** Komentar pembaca pada artikel terbit (login apa pun). */
+  comment(sessionId: Hex, text: string) {
+    return this.api.post(`/articles/${sessionId}/comments`, { text });
   }
 
   // ------------------------------------------------------------ escrow APC (Hugo, M7)

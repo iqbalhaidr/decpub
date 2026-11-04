@@ -28,6 +28,7 @@ const app = createZkApp({
           fromBlock: BigInt(process.env.LOG_FROM_BLOCK ?? 0),
         }
       : undefined,
+    deployments.contracts.PublicationSessions ? contractAddress(deployments, "PublicationSessions") : undefined,
   ),
 });
 app.listen(port, host, () => {
