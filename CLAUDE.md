@@ -10,3 +10,10 @@ Saya ditugaskan oleh dosen pembimbing saya untuk melakukan integrasi dari 3 tuga
 8. Secara umum integrasikan rancangan alur publikasi ciko yakni mekanisme anonimitas triple blind peer review yang berfokus untuk mengurangi bias identitas
 9. Integrasikan rancangan milik roihan untuk komplementer kedua rancangan sebelumnya (ciko dan hugo)
 10. Gunakan frontend yang paling mature dari ketiga ini (roihan, hugo, ciko), tebakan saya roihan yang paling mature. silakan lakukan adjustment apabila diperlukan. Untuk frontend ini tolong stripdown semua yang bersifat estetik, UI/UX itu bukan prioritas. Saya ingin desain yang sangat basic/plain mungkin (tidak ada dekorasi2, purely mungkin hanya basic tulisan macam website zaman dahulu yang dimana stylenya hanya tulisan saja. seperti  website berkshire hathaway, craiglist, dan lain sebagainya). Karena fokus saya adalah mendemostrasikan alur/flow keseluruhan saja sehingga dengan lebih sedikit distraksi lebih baik, yang penting fungsional.
+
+## Aturan kerja
+- Jangan ubah folder Hugo/, Ciko/, Roihan/ yang asli. Semua hasil integrasi ditulis di folder baru integrated/. Boleh menyalin kode dari folder asli.
+- Prioritas jika rancangan bertentangan: alur Ciko (utama) > mekanisme Hugo > pelengkap Roihan. Jika konflik besar atau ambigu, berhenti dan tanyakan saya.
+- Kode harus modular dan terdokumentasi, bukan hack sekali pakai.
+- Di akhir setiap sesi, perbarui docs/PROGRESS.md (selesai, tersisa, masalah terbuka, cara menjalankan).
+- Definisi selesai: skenario demo end-to-end dari pra-pengajuan sampai pasca-publikasi bisa dijalankan dengan satu perintah.
