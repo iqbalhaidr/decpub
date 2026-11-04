@@ -1,0 +1,26 @@
+{
+  "name": "decpub-contracts",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "compile": "hardhat compile",
+    "test": "hardhat test nodejs",
+    "node": "hardhat node --port 8545",
+    "deploy:local": "hardhat ignition deploy ignition/modules/Integrated.ts --network localhost --reset && tsx scripts/export-addresses.ts localhost",
+    "deploy:sepolia": "hardhat ignition deploy ignition/modules/Integrated.ts --network sepolia",
+    "check-wiring": "tsx scripts/check-wiring.ts"
+  },
+  "devDependencies": {
+    "@nomicfoundation/hardhat-ignition": "^3.1.5",
+    "@nomicfoundation/hardhat-toolbox-viem": "^5.0.5",
+    "@types/node": "^22.8.5",
+    "hardhat": "^3.4.5",
+    "tsx": "^4.19.0",
+    "typescript": "~5.8.0",
+    "viem": "^2.47.6"
+  },
+  "dependencies": {
+    "@openzeppelin/contracts": "^5.6.1"
+  }
+}

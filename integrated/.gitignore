@@ -1,0 +1,15 @@
+node_modules/
+.env
+.env.*
+!.env.example
+# Hardhat
+contracts/artifacts/
+contracts/cache/
+contracts/types/
+# Ignition: simpan hanya deployment sungguhan yang sengaja di-commit, bukan jaringan lokal
+contracts/ignition/deployments/chain-31337/
+# Keluaran demo dan data lokal
+demo-output/
+data/
+*.log
+contracts/deployments/
