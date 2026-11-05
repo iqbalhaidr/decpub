@@ -4,7 +4,7 @@ Diperbarui di akhir setiap sesi.
 
 ## Terakhir diperbarui
 
-2026-11-05, sesi M11.
+2026-11-05, sesi M12.
 
 ## Selesai
 
@@ -184,9 +184,23 @@ Diperbarui di akhir setiap sesi.
   - **Tes:** `npm test` lulus seluruhnya: kontrak 265, shared 28, incentive-core 17, **storage-sim 20** (+1 CORS), zk-sim 51, server 127. `npm run typecheck` bersih. Regresi `demo:m1`, `demo:m3`, `demo:m8`, `demo:m9`, `demo:m10`, dan `check-wiring` (95/95) lulus; `demo:m4`-`demo:m7` tidak diulang (server dan kontrak tidak berubah selain `weightPresets` pada `GET /journals`, dan semuanya sudah tercakup tes server yang lulus).
   - **Uji mutasi** (karena hasil lulus mudah): rekomendasi ikut dikirim pada permintaan commit membuat "permintaan commit hanya memuat ..." gagal; klaim imbalan lewat klien ber-JWT membuat "aksi pseudonim dikirim TANPA token" gagal (kedua mutasi dijalankan bersamaan, tepat dua pemeriksaan itu yang gagal). Dipulihkan. Tiga kegagalan pada putaran pertama adalah bug skrip tes, bukan sistem: perbandingan imbalan memakai `toFixed` (membulatkan) sedangkan UI memotong enam desimal (0,0049215 tampil 0,004921, skrip mengharapkan 0,004922); pemeriksaan "tanpa surel" ikut membaca navigasi (yang menampilkan surel pengguna yang sedang masuk, sama dengan M10); dan hitungan permintaan admin diharapkan 3 padahal hanya dua (setujui bidang, picu epoch).
 
+- **M12 selesai.** `cd integrated && npm install && npm run demo` meluluskan S1-S6 dan audit dengan kode keluar 0, menulis laporan, dan layanan tetap hidup. Semua dijalankan sendiri, tanpa mock. **Satu batasan pengujian:** semua putaran memakai `RPC_URL=http://127.0.0.1:18545`, karena :8545 dipakai node lama (lihat Temuan M12). Perbedaannya hanya nomor port.
+  - **Perintah baru:** `npm run demo` (`scripts/demo.ts`), `npm run demo -- --exit`, `npm run demo:stop`, `npm run audit`, `npm run test:scripts`. Urutan: hentikan sisa jalan sebelumnya, periksa port, bersihkan data demo (hanya `data/demo`, `demo-output/report.md`, `demo-output/demo-state.json`), nyalakan node, deploy, `check-wiring` (95/95), storage-sim, zk-sim, server (seed), build dan nyalakan frontend, S1-S6, audit, laporan. Kode keluar: 0 lulus, 1 skenario atau audit gagal, 2 tidak bisa dimulai. Tidak butuh Chrome atau MetaMask.
+  - **Berkas baru:** `scripts/lib/stack.ts` (proses lepas, PID di `data/demo/pids.json`, hanya menghentikan proses yang tercatat dan berjalan dari folder proyek ini), `scripts/scenarios/{context,s1-accepted,s2-refund,s3-minor,s4-gray,s5-noshow,s6-reputation}.ts`, `scripts/audit-anonymity.ts`, `scripts/lib/report.ts`, `scripts/test/audit-anonymity.test.ts`, `scripts/tsconfig.json` (kini bagian `npm run typecheck`, hanya untuk berkas M12). `scripts/lib/services.ts` mendapat `keepDir` dan `procs`.
+  - **Hasil (120 pemeriksaan skenario):** S1 36/36 (P01-P08, urutan imbalan R1 > R2 > R3 dengan jumlah tepat 1 APC, hash laporan QoS = on-chain, klaim ke alamat baru, mint per epoch, komentar, open review, disclosure, dan empat halaman frontend). S2 17/17 (gagal P03 dan desk reject, APC penuh ke dua alamat baru). S3 19/19 (pool lima, batch 2 tetap orang yang sama, pseudonim baru, hash berubah, DOI versi 2, 6 baris imbalan). S4 10/10 (Accept, Minor, Reject menjadi zona abu-abu, 2 orang baru, agregasi atas 5 menjadi AcceptAsIs). S5 21/21 (satu commit tanpa reveal tidak dibayar; dua batch ditinggalkan, kandidat habis, refund ditolak sebelum timeout, berhasil sesudah 91 hari, server menutup sesi menjadi `Rejected`). S6 17/17 (q4 R1 dan R2 0,75 menjadi 1, R3 tetap 0; pseudonim berbeda; permintaan tanpa `reputationId`).
+  - **Audit:** membaca seluruh blok (349 blok, 341 transaksi, 489 log, 210 nilai): pengirim, calldata, data dan topik log. 0 pelanggaran, 9/9 kontrol positif. Dilarang di semua transaksi: secret, rahasia note, kunci pseudonim, salt undangan, surel, nama, afiliasi. Hanya di fungsi tertentu: commitment identitas dan akun permanen (pendaftaran; akun permanen juga di pengungkapan pemiliknya), commitment note dan penyetor (setoran), `reputationId` (mint), penerima baru (klaim dan refund). Pengirim selain setoran harus deployer atau operator. Mint dan setoran tanpa id sesi dan pseudonim. Kontrol positif memastikan audit tidak lulus karena tidak membaca apa pun; ledger kosong gagal (diuji).
+  - **Kriteria selesai:**
+    - Dari clone bersih: salinan semua berkas yang akan masuk git (tanpa `node_modules`, artefak, data, `deployments`) di folder baru, `npm install` lalu `npm run demo`: kode keluar 0. Bukan `git clone` harfiah, karena pekerjaan M12 belum di-commit. solc sudah ada di cache global, jadi unduhan pertama tidak teruji.
+    - Laporan `demo-output/report.md` memuat jejak status, hash transaksi per perubahan status, transaksi penting, tautan halaman, pemeriksaan, dan audit.
+    - Setelah perintah selesai: kelima port masih hidup, halaman artikel, pelacak, dan insentif S1 membalas 200, dan halaman artikel dibuka di Chrome (tangkapan layar saya lihat sendiri: DOI, penulis yang mengungkap, penelaah tidak diungkap, open review, teks polos). `demo:stop` menutup semuanya (0 port tersisa).
+    - Lulus tiga kali berturut-turut pada working copy (seleksinya acak), plus satu kali di salinan clone.
+  - **Uji mutasi:** (A) kebocoran asli Ciko dihidupkan lagi (`sessionCommitment` = commitment permanen): audit gagal dengan 43 pelanggaran, dan S3 ikut gagal karena `CommitmentAlreadyUsedInSession`. (B) `closeRefunded` dinonaktifkan: 3 pemeriksaan S5 gagal. (C) revisi Minor tanpa `prefer`: pemeriksaan "orang yang SAMA" S3 gagal; pemeriksaan ini tadinya tidak bermakna pada pool tiga orang, sehingga S3 dipindah setelah S4. (D) satu transaksi bersurel ditanam di node hidup: `npm run audit` berubah dari kode 0 ke kode 1. Semua mutasi dipulihkan (`git status` bersih untuk berkas itu). Port yang dipakai proses lain: demo berhenti dengan kode 2 dan menyebut portnya.
+  - **Tes:** `npm test` lulus seluruhnya: kontrak 265, shared 28, storage-sim 20, incentive-core 17, zk-sim 51, server 127, **skrip 24 (baru)**. `npm run typecheck` bersih. Regresi `demo:m1`-`demo:m8`, `demo:m10`, `demo:m11` (80 dan 113 pemeriksaan) dan `check-wiring` (95/95) lulus. `demo:m9` tidak diulang: frontend dan alurnya tidak berubah, dan `demo:m10`/`demo:m11` memakai jalur layanan yang sama.
+  - Dua kegagalan putaran pertama adalah bug skenario saya, bukan sistem: rekomendasi bawaan 0 (enum kontrak 1-4), dan jejak status yang mengharapkan `UnderAutomaticChecking` (lihat Temuan M12).
+
 ## Tersisa
 
-Milestone berikutnya: **M12, satu perintah** (`npm run demo` dari clone bersih: bersihkan data, nyalakan node, deploy, seed, jalankan semua service, skenario S1-S6 memakai `packages/shared` yang sama dengan frontend, `scripts/audit-anonymity.ts`, laporan `demo-output/report.md`, service tetap hidup, `--exit` untuk berhenti). Bahan yang sudah ada dan bisa dipakai ulang: `scripts/lib/{services,api,member,flow,chain-scan,client-chain,browser}.ts` dan `scripts/milestones/m4..m11.ts` (jalur S1-S6 sudah ada sebagian di m4, m5, m7, m8). M13 (Sepolia) belum dikerjakan dan butuh RPC, kunci deployer baru, dan ETH testnet dari pengguna.
+Milestone berikutnya: **M13, Sepolia.** Butuh dari pengguna: RPC Sepolia, kunci deployer baru, dan ETH testnet. Belum dikerjakan. `npm run demo` sengaja menolak jaringan selain lokal.
 
 Dari M7 yang belum dikerjakan (lihat Masalah terbuka): tenggat otomatis fase telaah dan timeout refund otomatis, penutupan sesi `Incomplete` oleh penulis.
 
@@ -433,11 +447,38 @@ Tidak ada yang bertentangan dengan `arsitektur.md` atau `analisis/` pada tingkat
 - **Yang TIDAK diuji di browser oleh `demo:m11`:** putusan editor `Revise` (UI ada; jalur kontrak/server diuji M5 lewat skrip), tombol admin "Tutup fase" (jalur server diuji M5), alur no-show, dan jalur MetaMask. `demo:m11` memajukan jam chain 5 hari (`evm_increaseTime`, untuk q1), tambahan pada 180+ hari dari `demo:m6`.
 - **`npm run build -w frontend` dalam `demo:m11` melawan layanan demo** (NEXT_PUBLIC_* tertanam saat build), sama dengan M10; `npm run frontend` (dev) melawan server di :3001 menyala, tetapi langkah manual README belum saya tempuh dengan tangan di dev server, hanya lewat build produksi di demo.
 
+## Temuan di lapangan (M12)
+
+**Satu ketidaksesuaian dengan `arsitektur.md`. Keputusan Anda (2026-11-05): opsi (a), diagram bagian 4 sudah diperbaiki agar sesuai kode, tanpa perubahan kode.** Teks asli dipertahankan sebagai catatan alasan.
+
+- **Status `UnderAutomaticChecking` tidak dilalui pada pengecekan pertama.** Diagram bagian 4 menulis `Submitted -> UnderAutomaticChecking -> ...`, tetapi jejak on-chain sesi lulus adalah `UnderAnonymization -> UnderEditorialScreening -> ...`, dan sesi gagal P03 langsung `Rejected`. Kontrak mengizinkan lompatan dari `Submitted`, dan server hanya memakai status itu pada pengecekan ulang `Incomplete`. Perilaku ini sudah ada sejak M3; S1-S5 kini mengunci jejak yang nyata. Opsi: (a) perbaiki diagram agar sesuai kode (tanpa perubahan kode, saya sarankan), atau (b) tambah `updateStatus(UnderAutomaticChecking)` sebelum P03 agar status itu tampil di jejak (satu transaksi tambahan per sesi, perlu menyesuaikan `demo:m3`-`demo:m11` yang memeriksa jejak).
+
+**Yang perlu Anda lakukan sebelum `npm run demo` pertama:**
+
+- **Node Hardhat lama masih hidup di :8545** (PID 162404, tanpa terminal, induknya sudah tidak ada, sudah hidup sejak sebelum sesi ini dimulai). Saya tidak menghentikannya karena bukan saya yang menyalakannya di sesi ini. Selama masih hidup, `npm run demo` berhenti dengan kode 2. Bila memang sisa sesi lalu: `kill 162404`.
+
+**Keputusan kecil yang saya ambil sendiri (semuanya reversibel; mohon dikoreksi bila tidak setuju):**
+
+- **Urutan eksekusi S1, S6, S2, S4, S3, S5**, laporan tetap urut nomor. Alasannya: S6 butuh pool tepat tiga penelaah dan reputasi S1; S3 butuh pool lebih besar dari batch; S5 memajukan jam chain 91 hari, yang akan menghapus reputasi. Ukuran pool diatur hanya lewat siapa yang mendaftarkan identitas, tanpa jalur khusus di server.
+- **Layanan tetap hidup lewat proses lepas dan perintahnya selesai dengan kode 0**, bukan menahan terminal. Kriteria meminta keduanya sekaligus.
+- **Demo tidak pernah menghentikan proses yang bukan miliknya.** Hanya PID yang tercatat dan berjalan dari folder proyek ini.
+- **Skenario gagal tidak menghentikan skenario lain**, supaya laporan tetap lengkap. Pada kode keluar 1 layanan tetap hidup untuk diperiksa.
+- **Tambahan di luar rencana:** `demo-output/demo-state.json` berisi akun, password, secret, dan rahasia note demo, supaya hasil demo bisa dilanjutkan di browser lewat impor, dan menjadi masukan `npm run audit`. Hanya data lokal dan masuk `.gitignore`. Impor secret itu sendiri belum saya uji dari data ini.
+- **`demo:mN` tetap bisa dijalankan terhadap node demo**, tetapi menambah sesi ke chain itu, jadi `/articles` memuat judul "(metadata tidak terjangkau)" (temuan M8). Jalankan ulang `npm run demo` untuk data bersih.
+
+**Batas yang perlu disadari saat mengutip hasil demo:**
+
+- **Audit hanya mencari kemunculan nilai yang tepat.** Korelasi waktu, nominal imbalan yang unik, gaya tulisan, dan isi PDF tidak diukur (arsitektur 8.4). Ia juga tidak memeriksa storage atau proyeksi API, dan transfer ETH internal hanya terlihat lewat calldata dan log. Lulus audit berarti tidak ada kebocoran langsung di ledger, bukan anonimitas penuh.
+- **Skenario adalah klien skrip, bukan klik browser.** Kodenya berbagi `packages/shared` dengan frontend, tetapi `scripts/lib/member.ts` dan `frontend/src/lib/party.ts` adalah dua implementasi. Klik browser diuji `demo:m10` dan `demo:m11`, yang tidak termasuk `npm run demo` agar tidak butuh Chrome.
+- **Himpunan anonim sangat kecil:** enam penelaah dan satu kategori (arsitektur bagian 13).
+- **R3 tidak pernah menambah reputasi di demo.** Kreditnya di bawah 0,25, jadi q4-nya tetap 0 di semua sesi, dan q4 R1 dan R2 sudah mentok di 1 setelah dua klaim. Ini akibat aturan pembulatan M7 dan tingkat kasar, bukan bug, tetapi layak dibahas di skripsi.
+- **Jalur MetaMask tetap belum pernah dijalankan** (temuan M10). Akan pertama kali dipakai di M13.
+
 ## Masalah terbuka
 
 - Kode Roihan belum pernah dijalankan. Kontrak Hugo asli tidak dijalankan; yang diuji adalah kontrak turunannya (M6). Pembandingan langsung dengan `Hugo/` asli (mis. `npm run test:contracts` Hugo) belum dilakukan; angka Lampiran B direproduksi dari data dan rumusnya.
 - Daftar `decideBatch` dan urutan fase telaah masih dijaga operator (batasan Ciko, arsitektur bagian 13). Gateway meneruskan apa adanya. Sejak M4 server menegakkan "Reveal setelah semua commit" dan "hanya yang reveal dihitung", tetapi kontrak tidak.
-- Penelaah yang tidak commit atau reveal ditangani admin (`close-phase`, M5). **Tenggat otomatis tetap belum ada** (tidak masuk kriteria M7): tidak ada penjadwal di server, jadi `close-phase` dan refund timeout (`POST /escrow/refund` oleh penulis, `closeAfterRefund` menutup sesi) tetap dipicu manusia. Refund timeout teruji di kontrak (M6) dan penutupan sesinya di tes unit M7, tetapi belum didemokan di chain melalui server. Penelaah yang tidak mengikat penugasan dan editor yang tidak merespons belum punya jalur pengganti.
+- Penelaah yang tidak commit atau reveal ditangani admin (`close-phase`, M5). **Tenggat otomatis tetap belum ada** (tidak masuk kriteria M7): tidak ada penjadwal di server, jadi `close-phase` dan refund timeout (`POST /escrow/refund` oleh penulis, `closeAfterRefund` menutup sesi) tetap dipicu manusia. Refund timeout dan penutupan sesinya kini didemokan di chain melalui server (S5, M12). Penelaah yang tidak mengikat penugasan dan editor yang tidak merespons belum punya jalur pengganti.
 - Dua keputusan terbuka di "Temuan di lapangan (M4)": tautan pseudonim di server saat pengikatan, dan pembuatan pseudonim yang tak dibatasi undangan.
 - `npm install` melaporkan kerentanan pada rantai dev; belum diperiksa (sama seperti M0).
 - CORS zk-sim, storage-sim (M11), dan server mencakup `localhost:3000` dan `127.0.0.1:3000` (M9-M11). Untuk host lain isi `CORS_ORIGIN` (server), `ZK_CORS_ORIGIN` (zk-sim), dan `STORAGE_CORS_ORIGIN` (storage-sim).
@@ -450,9 +491,23 @@ Tidak ada yang bertentangan dengan `arsitektur.md` atau `analisis/` pada tingkat
 - Dua keputusan M8 (bentuk "kontribusi agregat", nama editor tak terverifikasi) sudah dijawab (terima kondisi sekarang), bukan lagi terbuka.
 - Pengungkapan identitas tidak bisa dicabut (satu kali, permanen di ledger). UI `/author/disclose` (M10) memperingatkan dan mewajibkan kotak konfirmasi.
 - `DOIToken.postComment` oleh relayer: `reader` di event selalu operator (lihat temuan M8).
+- Halaman `/tracker/[id]` masih mencantumkan `UnderAutomaticChecking` di daftar alur utama (`MAIN_PATH`), padahal status itu dilewati pada pengecekan pertama. Hanya tampilan; penanda "di sini" tetap benar. Belum diubah karena keputusan Temuan M12 hanya memperbaiki diagram.
 - M13 butuh RPC Sepolia, kunci deployer baru, dan ETH testnet dari pengguna.
 
 ## Cara menjalankan
+
+Satu perintah (M12). Butuh port 8545, 8081, 8082, 3001, 3000 bebas:
+
+```bash
+cd integrated
+npm install
+npm run demo             # S1-S6 + audit, laporan di demo-output/report.md, layanan tetap hidup. Hasil S1 tercetak di akhir.
+npm run audit            # mengulang audit selama node hidup
+npm run demo:stop        # menghentikan layanan
+npm run demo -- --exit   # sama, tetapi layanan dihentikan setelah selesai
+```
+
+Per komponen dan regresi milestone:
 
 ```bash
 cd integrated
@@ -497,5 +552,3 @@ npm run demo:m10              # membangun frontend melawan layanan demo, membuka
 npm run demo:m11              # membangun frontend, membuka Chrome sungguhan, menempuh penulis -> editor -> admin -> tiga penelaah -> imbalan -> epoch, tangkapan layar di demo-output/m11
 # Mencoba manual dengan tangan: integrated/README.md bagian "Frontend editor, penelaah, dan admin (M11)" (langkah 1-10, butuh server dengan DB baru).
 ```
-
-Target akhir: `cd integrated && npm install && npm run demo`.

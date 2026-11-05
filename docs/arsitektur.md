@@ -139,13 +139,15 @@ PEMBACA                    artikel, open review, komentar                       
 
 ### Mesin status
 
-Tidak berubah dari kode Ciko (`$CIKO/contracts/contracts/PublicationSessions.sol:224-264`).
+Tidak berubah dari kode Ciko (`$CIKO/contracts/contracts/PublicationSessions.sol:224-264`). Diagram ini menunjukkan transisi yang benar-benar dilalui alur. Pengecekan pertama langsung dari `Submitted`, tanpa melewati `UnderAutomaticChecking`. Status itu hanya dipakai saat `Incomplete` dicek ulang, karena kontrak menolak `Incomplete -> Incomplete`.
 
 ```text
-Submitted -> UnderAutomaticChecking -> Incomplete -> (cek ulang)
-                 | Pass                    | Reject -> Rejected [refund]
-                 v
-          UnderAnonymization -> UnderEditorialScreening <---------------+
+Submitted --P03--> Incomplete --cek ulang--> UnderAutomaticChecking --P03--> (hasil yang sama)
+    | P03
+    +-- Reject -> Rejected [refund]
+    | Pass
+    v
+UnderAnonymization -> UnderEditorialScreening <-------------------------+
                                   | Proceed   | Revise -> MajorRequired-+ recordRevision
                                   |           | DeskReject -> Rejected [refund]
                                   v

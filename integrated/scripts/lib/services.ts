@@ -16,6 +16,8 @@ const ROOT = resolve(import.meta.dirname, "..", "..");
 export interface Services {
   urls: { storage: string; zk: string; server: string };
   dataDir: string;
+  /** PID proses yang dinyalakan (storage-sim, zk-sim, server). */
+  procs: { name: string; pid: number }[];
   /** Mematikan semua proses dan (bila `cleanup`) menghapus data sementara. */
   stop(cleanup?: boolean): Promise<void>;
 }
@@ -58,13 +60,15 @@ export interface StartOptions {
    * berkas log di sana. Bawaan: env `DEMO_KEEP=1`. Hentikan dengan `kill $(cat data/demo-keep/pids)`.
    */
   keep?: boolean;
+  /** Direktori data mode `keep`. Bawaan `data/demo-keep`; `npm run demo` memakai direktorinya sendiri. Dikosongkan saat start. */
+  keepDir?: string;
 }
 
 export async function startServices(opts: StartOptions = {}): Promise<Services> {
   const keep = opts.keep ?? process.env.DEMO_KEEP === "1";
   let dataDir: string;
   if (keep) {
-    dataDir = join(ROOT, "data", "demo-keep");
+    dataDir = opts.keepDir ?? join(ROOT, "data", "demo-keep");
     rmSync(dataDir, { recursive: true, force: true });
     mkdirSync(dataDir, { recursive: true });
   } else {
@@ -77,6 +81,7 @@ export async function startServices(opts: StartOptions = {}): Promise<Services> 
     server: `http://127.0.0.1:${serverPort}`,
   };
   const procs: ChildProcess[] = [];
+  const named: { name: string; pid: number }[] = [];
   const common = { ...process.env, STORAGE_API_URL: urls.storage, STORAGE_GATEWAY_URL: urls.storage, ZK_SIM_URL: urls.zk };
 
   const launch = (name: string, cwd: string, loader: string, env: Record<string, string>): ChildProcess => {
@@ -99,6 +104,7 @@ export async function startServices(opts: StartOptions = {}): Promise<Services> 
       });
     }
     procs.push(p);
+    if (p.pid) named.push({ name, pid: p.pid });
     return p;
   };
 
@@ -130,6 +136,7 @@ export async function startServices(opts: StartOptions = {}): Promise<Services> 
   return {
     urls,
     dataDir,
+    procs: named,
     async stop(cleanup = true) {
       if (keep) return; // layanan sengaja dibiarkan hidup; hentikan dengan `kill $(cat <dataDir>/pids)`
       for (const p of procs) p.kill("SIGTERM");

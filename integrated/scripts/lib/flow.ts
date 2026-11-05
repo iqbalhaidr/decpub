@@ -63,6 +63,7 @@ export interface TrailEntry {
   order: number;
   blockNumber: number;
   logIndex: number;
+  txHash: Hex;
   event: string;
   summary: string;
   args: Record<string, any>;

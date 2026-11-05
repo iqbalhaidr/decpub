@@ -19,7 +19,7 @@
     "test:contracts": "npm run test -w contracts",
     "storage": "npm run start -w services/storage-sim",
     "test:storage": "npm run test -w packages/shared && npm run test -w services/storage-sim",
-    "typecheck": "npm run typecheck -w packages/shared && npm run typecheck -w packages/incentive-core && npm run typecheck -w services/storage-sim && npm run typecheck -w services/zk-sim && npm run typecheck -w server && npm run typecheck -w frontend",
+    "typecheck": "npm run typecheck -w packages/shared && npm run typecheck -w packages/incentive-core && npm run typecheck -w services/storage-sim && npm run typecheck -w services/zk-sim && npm run typecheck -w server && npm run typecheck -w frontend && tsc -p scripts/tsconfig.json",
     "demo:m1": "node --import tsx scripts/milestones/m1.ts",
     "zk": "npm run start -w services/zk-sim",
     "test:zk": "npm run test -w services/zk-sim",
@@ -34,13 +34,17 @@
     "server": "npm run start -w server",
     "test:server": "npm run test -w server",
     "test:shared": "npm run test -w packages/shared",
-    "test": "npm run test:contracts && npm run test:storage && npm run test:incentive && npm run test:zk && npm run test:server",
+    "test": "npm run test:contracts && npm run test:storage && npm run test:incentive && npm run test:zk && npm run test:server && npm run test:scripts",
     "test:incentive": "npm run test -w packages/incentive-core",
     "frontend": "npm run dev -w frontend",
     "build:frontend": "npm run build -w frontend",
     "demo:m9": "node --import tsx scripts/milestones/m9.ts",
     "demo:m10": "node --import tsx scripts/milestones/m10.ts",
-    "demo:m11": "node --import tsx scripts/milestones/m11.ts"
+    "demo:m11": "node --import tsx scripts/milestones/m11.ts",
+    "demo": "node --import tsx scripts/demo.ts",
+    "demo:stop": "node --import tsx scripts/demo.ts --stop",
+    "audit": "node --import tsx scripts/audit-anonymity.ts",
+    "test:scripts": "node --import tsx --test scripts/test/audit-anonymity.test.ts"
   },
   "engines": {
     "node": ">=22"

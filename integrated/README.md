@@ -4,19 +4,57 @@ Integrasi tiga tugas akhir (Ciko, Hugo, Roihan) menjadi satu sistem publikasi il
 anonim (triple blind) dengan insentif penelaah. Rancangan: `../docs/arsitektur.md`.
 Urutan kerja: `../docs/PLAN.md`. Status: `../docs/PROGRESS.md`.
 
-**Status saat ini: M9 selesai.** Kontrak Ciko (M0), storage simulator (M1), ZK simulasi,
-`ActionGateway`, dan pseudonim tanpa tautan (M2), backend P01-P04 (M3), P05-P08 jalur diterima (M4),
-revisi, zona abu-abu, dan penolakan (M5), kontrak escrow dan insentif Hugo (M6), serta insentif di backend
-(APC di muka, QoS, imbalan otomatis, klaim, reputasi, refund; M7) berjalan. Pasca-publikasi dan pelengkap Roihan
-(DOI NFT, selective disclosure, open review, komentar, statistik agregat; M8) berjalan.
-Frontend polos untuk halaman publik, akun, secret (M9), dan seluruh aksi penulis (M10) berjalan; halaman editor, penelaah, dan admin menyusul (M11).
-Target akhir: `npm install && npm run demo`.
+**Status saat ini: M12 selesai.** Seluruh alur, dari pra-pengajuan sampai pasca-publikasi, berjalan dengan satu perintah di jaringan
+lokal dan bisa dicoba dari browser. Yang tersisa: Sepolia (M13).
+
+## Satu perintah
+
+```bash
+cd integrated
+npm install
+npm run demo             # menyalakan semuanya, menjalankan S1-S6 dan audit, menulis laporan, layanan tetap hidup
+```
+
+Butuh Node >= 22 dan port 8545, 8081, 8082, 3001, 3000 bebas. Chrome dan MetaMask tidak dibutuhkan. Kompilasi pertama mengunduh solc
+(butuh internet sekali). Bila port dipakai proses lain, misalnya node dari `npm run chain`, demo berhenti dengan kode 2 dan menyebut
+portnya; demo tidak menghentikan proses yang bukan miliknya. Sisa `npm run demo` sebelumnya dihentikan otomatis.
+
+| Skenario | Yang dibuktikan |
+|---|---|
+| S1 Diterima, terbit, diungkap | Alur utama, DOI, imbalan, reputasi, komentar, selective disclosure, halaman frontend |
+| S2 Gagal P03 dan desk reject | Refund penuh ke alamat baru, tanpa penelaah dan tanpa distribusi |
+| S3 Revisi minor | Orang yang sama, batch dan pseudonim baru, hash berubah, DOI versi 2 |
+| S4 Zona abu-abu | Tambahan dua penelaah baru, agregasi ulang atas lima pseudonim |
+| S5 Satu no-show dan semua no-show | Imbalan hanya untuk yang reveal; kandidat habis, lalu timeout refund dan sesi ditutup |
+| S6 Dua sesi | q4 naik tanpa menaut pseudonim |
+| Audit | Seluruh blok dibaca: nama, surel, secret, alamat permanen, dan note tidak ada di transaksi sesi |
+
+Hasil:
+
+- `demo-output/report.md`: ringkasan, jejak status, hash transaksi, tautan halaman, hasil audit.
+- `demo-output/demo-state.json`: akun demo, password, dan secret, untuk melanjutkan di browser (impor secret di `/profile`, rahasia note
+  di `/author/apc`). Hanya data lokal; masuk `.gitignore`.
+- `data/demo/*.log`: log tiap proses.
+- Layanan tetap hidup: frontend http://localhost:3000, storage http://127.0.0.1:8081, API http://127.0.0.1:3001/api, node http://127.0.0.1:8545.
+
+```bash
+npm run demo:stop        # menghentikan layanan demo
+npm run demo -- --exit   # sama dengan npm run demo, tetapi layanan dihentikan setelah selesai
+npm run audit            # mengulang audit anonimitas selama node hidup (kode keluar 1 bila ada pelanggaran)
+```
+
+Kode keluar `npm run demo`: 0 semua lulus, 1 ada skenario atau audit gagal (laporan tetap ditulis, layanan tetap hidup untuk diperiksa),
+2 tidak bisa dimulai. Port RPC bisa diganti lewat `RPC_URL`; port layanan lain tetap, karena CORS dan frontend memakainya.
+
+Skenario berbicara dengan sistem seperti browser (HTTP dan `packages/shared` yang sama dengan frontend) dan menjalankannya sebagai
+pemeriksaan otomatis. Untuk menempuh alur dengan tangan di browser, lihat bagian M10 dan M11 di bawah. `demo:m11` menempuh alur yang
+sama di Chrome sungguhan.
 
 ## Prasyarat
 
 - Node >= 22 (diuji di Node 24.11.0), npm 11.
 
-## Menjalankan (M0 sampai M11)
+## Menjalankan per komponen (M0 sampai M11)
 
 ```bash
 cd integrated
@@ -172,8 +210,12 @@ packages/shared/          StorageProvider, CID, kripto klien (secret, pseudonim,
 services/storage-sim/     simulator IPFS + halaman HTML (Express)
 packages/incentive-core/  salinan mesin insentif Hugo (normalisasi, BWM, ECWM, fusi, TOPSIS) + model referensi kontrak
 services/zk-sim/          attestor bukti ZK simulasi (Express)
+scripts/demo.ts           npm run demo: satu perintah (M12)
+scripts/scenarios/        skenario S1-S6 dan konteks bersamanya
+scripts/audit-anonymity.ts  audit seluruh ledger; juga bisa dijalankan sendiri (npm run audit)
+scripts/test/             tes aturan audit dengan ledger buatan
 scripts/milestones/       demo:mN, dipertahankan sebagai uji regresi
-scripts/lib/              klien skrip (Member, Api, flow), layanan proses nyata (services.ts, mode DEMO_KEEP), pengendali Chrome (browser.ts)
+scripts/lib/              klien skrip (Member, Api, flow), layanan proses nyata (services.ts, mode DEMO_KEEP), tumpukan demo (stack.ts), laporan (report.ts), pengendali Chrome (browser.ts)
 frontend/                 Next.js polos: halaman publik, akun, secret (M9), penulis (M10), editor, penelaah, admin (M11); WalletProvider
 contracts/
   contracts/ciko/         9 kontrak Ciko (salinan; hanya EphemeralAccounts diubah)
