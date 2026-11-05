@@ -198,6 +198,8 @@ Diperbarui di akhir setiap sesi.
   - **Tes:** `npm test` lulus seluruhnya: kontrak 265, shared 28, storage-sim 20, incentive-core 17, zk-sim 51, server 127, **skrip 24 (baru)**. `npm run typecheck` bersih. Regresi `demo:m1`-`demo:m8`, `demo:m10`, `demo:m11` (80 dan 113 pemeriksaan) dan `check-wiring` (95/95) lulus. `demo:m9` tidak diulang: frontend dan alurnya tidak berubah, dan `demo:m10`/`demo:m11` memakai jalur layanan yang sama.
   - Dua kegagalan putaran pertama adalah bug skenario saya, bukan sistem: rekomendasi bawaan 0 (enum kontrak 1-4), dan jejak status yang mengharapkan `UnderAutomaticChecking` (lihat Temuan M12).
 
+- **Tambahan setelah M12, atas permintaan pengguna: perintah reset.** `npm run demo:reset` menghentikan layanan demo dan menghapus `data/`, alamat kontrak lokal, serta laporan demo. `npm run demo:fresh` melakukan reset lalu menyalakan semua layanan dalam keadaan bersih tanpa skenario. Port demo kini bisa diatur lewat env (`STORAGE_PORT`, `ZK_PORT`, `SERVER_PORT`, `FRONTEND_PORT`). Diuji di salinan bersih pada port terpisah, supaya demo pengguna yang sedang hidup tidak tersentuh: reset menolak dan tidak menghapus apa pun bila port dipakai proses lain (kode 2); setelah sistem dikotori (akun baru, kebijakan jurnal diubah, blok tambahan), dua `demo:fresh` menghasilkan keadaan identik (tinggi blok 30, alamat kontrak, daftar akun, statistik, kebijakan jurnal); akun lama tidak bisa login; `npm run demo` sesudahnya tetap lulus penuh. **Belum diuji:** kedua perintah pada port bawaan, dan alur browser di atas `demo:fresh`. Data browser tidak bisa dihapus dari skrip: token lama mendapat 404 dari server setelah reset, jadi pakai jendela penyamaran baru.
+
 ## Tersisa
 
 Milestone berikutnya: **M13, Sepolia.** Butuh dari pengguna: RPC Sepolia, kunci deployer baru, dan ETH testnet. Belum dikerjakan. `npm run demo` sengaja menolak jaringan selain lokal.
@@ -505,6 +507,8 @@ npm run demo             # S1-S6 + audit, laporan di demo-output/report.md, laya
 npm run audit            # mengulang audit selama node hidup
 npm run demo:stop        # menghentikan layanan
 npm run demo -- --exit   # sama, tetapi layanan dihentikan setelah selesai
+npm run demo:reset       # hentikan layanan dan hapus semua data lokal
+npm run demo:fresh       # reset, lalu nyalakan semua layanan bersih tanpa skenario, untuk mencoba manual
 ```
 
 Per komponen dan regresi milestone:

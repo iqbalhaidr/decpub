@@ -44,7 +44,9 @@
     "demo": "node --import tsx scripts/demo.ts",
     "demo:stop": "node --import tsx scripts/demo.ts --stop",
     "audit": "node --import tsx scripts/audit-anonymity.ts",
-    "test:scripts": "node --import tsx --test scripts/test/audit-anonymity.test.ts"
+    "test:scripts": "node --import tsx --test scripts/test/audit-anonymity.test.ts",
+    "demo:reset": "node --import tsx scripts/demo.ts --reset",
+    "demo:fresh": "node --import tsx scripts/demo.ts --fresh"
   },
   "engines": {
     "node": ">=22"

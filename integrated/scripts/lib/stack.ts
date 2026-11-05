@@ -113,6 +113,18 @@ export function cleanDemoData() {
   rmSync(STATE_PATH, { force: true });
 }
 
+/**
+ * Reset penuh: menghapus SEMUA data lokal sistem, termasuk data jalur manual (`npm run server`, `npm run storage`) dan alamat
+ * kontrak lama. Keluaran `demo-output/mN` (tangkapan layar regresi) tidak dihapus karena bukan keadaan sistem.
+ * Pemanggil wajib memastikan tidak ada proses yang masih memakai data ini.
+ */
+export function resetAllData() {
+  rmSync(join(ROOT, "data"), { recursive: true, force: true });
+  rmSync(join(ROOT, "contracts", "deployments", "localhost.json"), { force: true });
+  rmSync(join(ROOT, "contracts", "ignition", "deployments", "chain-31337"), { recursive: true, force: true });
+  cleanDemoData();
+}
+
 function launch(name: string, cwd: string, args: string[], env: NodeJS.ProcessEnv): Proc {
   const log = openSync(join(DEMO_DIR, `${name}.log`), "a");
   const p = spawn(process.execPath, args, { cwd, env, stdio: ["ignore", log, log], detached: true });

@@ -41,10 +41,20 @@ Hasil:
 npm run demo:stop        # menghentikan layanan demo
 npm run demo -- --exit   # sama dengan npm run demo, tetapi layanan dihentikan setelah selesai
 npm run audit            # mengulang audit anonimitas selama node hidup (kode keluar 1 bila ada pelanggaran)
+npm run demo:reset       # menghentikan layanan demo dan menghapus semua data lokal, tanpa menyalakan apa pun
+npm run demo:fresh       # reset, lalu menyalakan semua layanan dalam keadaan bersih, tanpa skenario, untuk mencoba manual
 ```
 
+Setiap `npm run demo` dan `npm run demo:fresh` selalu mulai dari keadaan yang sama, jadi utak-atik sebelumnya tidak terbawa. `demo:fresh` hanya berisi
+akun bawaan dan katalog jurnal, tanpa identitas terdaftar, dan menggantikan lima terminal pada jalur manual (langkah 1-10 di bagian M11).
+`demo:reset` menghapus `data/`, alamat kontrak lokal, dan laporan demo; tangkapan layar `demo-output/mN` tetap ada. Bila port dipakai proses yang
+bukan milik demo, misalnya `npm run server`, perintah menolak dan tidak menghapus apa pun.
+
+Data browser ada di luar jangkauan perintah ini. Setelah reset, token login lama ditolak server, jadi pakai jendela penyamaran baru atau hapus data
+situs `localhost:3000`.
+
 Kode keluar `npm run demo`: 0 semua lulus, 1 ada skenario atau audit gagal (laporan tetap ditulis, layanan tetap hidup untuk diperiksa),
-2 tidak bisa dimulai. Port RPC bisa diganti lewat `RPC_URL`; port layanan lain tetap, karena CORS dan frontend memakainya.
+2 tidak bisa dimulai. Port bisa diganti lewat `RPC_URL`, `STORAGE_PORT`, `ZK_PORT`, `SERVER_PORT`, dan `FRONTEND_PORT`.
 
 Skenario berbicara dengan sistem seperti browser (HTTP dan `packages/shared` yang sama dengan frontend) dan menjalankannya sebagai
 pemeriksaan otomatis. Untuk menempuh alur dengan tangan di browser, lihat bagian M10 dan M11 di bawah. `demo:m11` menempuh alur yang

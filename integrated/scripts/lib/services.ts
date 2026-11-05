@@ -62,6 +62,8 @@ export interface StartOptions {
   keep?: boolean;
   /** Direktori data mode `keep`. Bawaan `data/demo-keep`; `npm run demo` memakai direktorinya sendiri. Dikosongkan saat start. */
   keepDir?: string;
+  /** Port mode `keep`. Bawaan: storage 8081, zk 8082, server 3001. */
+  ports?: { storage: number; zk: number; server: number };
 }
 
 export async function startServices(opts: StartOptions = {}): Promise<Services> {
@@ -74,7 +76,7 @@ export async function startServices(opts: StartOptions = {}): Promise<Services> 
   } else {
     dataDir = mkdtempSync(join(tmpdir(), "decpub-demo-"));
   }
-  const [storagePort, zkPort, serverPort] = keep ? [8081, 8082, 3001] : [await freePort(), await freePort(), await freePort()];
+  const [storagePort, zkPort, serverPort] = keep ? [opts.ports?.storage ?? 8081, opts.ports?.zk ?? 8082, opts.ports?.server ?? 3001] : [await freePort(), await freePort(), await freePort()];
   const urls = {
     storage: `http://127.0.0.1:${storagePort}`,
     zk: `http://127.0.0.1:${zkPort}`,

@@ -11,6 +11,8 @@
  * Pilihan:
  *   --exit   hentikan semua layanan setelah selesai
  *   --stop   hanya menghentikan layanan jalan sebelumnya (`npm run demo:stop`)
+ *   --reset  menghentikan layanan dan menghapus semua data lokal, tanpa menyalakan apa pun (`npm run demo:reset`)
+ *   --fresh  reset, lalu menyalakan semua layanan dalam keadaan bersih tanpa skenario, untuk mencoba manual (`npm run demo:fresh`)
  *
  * Kode keluar: 0 semua lulus, 1 ada skenario atau audit gagal, 2 tidak bisa dimulai (mis. port dipakai proses lain).
  */
@@ -31,6 +33,7 @@ import {
   cleanDemoData,
   deployAndCheck,
   recordProcs,
+  resetAllData,
   startChain,
   startFrontend,
   stopRecorded,
@@ -52,10 +55,12 @@ import { s6 } from "./scenarios/s6-reputation.ts";
 const SCENARIOS: Scenario[] = [s1, s6, s2, s4, s3, s5];
 
 const args = new Set(process.argv.slice(2));
-const STORAGE = "http://127.0.0.1:8081";
-const ZK = "http://127.0.0.1:8082";
-const SERVER = "http://127.0.0.1:3001";
-const WEB = "http://localhost:3000";
+const envPort = (name: string, fallback: number) => Number(process.env[name] || fallback);
+const PORTS = { storage: envPort("STORAGE_PORT", 8081), zk: envPort("ZK_PORT", 8082), server: envPort("SERVER_PORT", 3001), web: envPort("FRONTEND_PORT", 3000) };
+const STORAGE = `http://127.0.0.1:${PORTS.storage}`;
+const ZK = `http://127.0.0.1:${PORTS.zk}`;
+const SERVER = `http://127.0.0.1:${PORTS.server}`;
+const WEB = `http://localhost:${PORTS.web}`;
 
 const stage = (text: string) => console.log(`\n=== ${text}`);
 
@@ -64,9 +69,15 @@ if (args.has("--stop")) {
   console.log(stopped.length ? `Dihentikan: ${stopped.join(", ")}` : "Tidak ada layanan demo yang hidup.");
   process.exit(0);
 }
-const unknown = [...args].filter((a) => a !== "--exit");
+const unknown = [...args].filter((a) => !["--exit", "--reset", "--fresh"].includes(a));
 if (unknown.length) {
-  console.error(`Pilihan tidak dikenal: ${unknown.join(" ")}. Tersedia: --exit, --stop`);
+  console.error(`Pilihan tidak dikenal: ${unknown.join(" ")}. Tersedia: --exit, --stop, --reset, --fresh`);
+  process.exit(2);
+}
+const resetOnly = args.has("--reset");
+const fresh = args.has("--fresh");
+if (args.size > 1) {
+  console.error("Pilih salah satu: --exit, --reset, atau --fresh");
   process.exit(2);
 }
 
@@ -97,17 +108,27 @@ const previous = await stopRecorded();
 if (previous.length) console.log(`jalan sebelumnya dihentikan: ${previous.join(", ")}`);
 const ports = [
   { name: "node Hardhat", port: Number(new URL(rpcUrl).port || 8545) },
-  { name: "storage-sim", port: 8081 },
-  { name: "zk-sim", port: 8082 },
-  { name: "server", port: 3001 },
-  { name: "frontend", port: 3000 },
+  { name: "storage-sim", port: PORTS.storage },
+  { name: "zk-sim", port: PORTS.zk },
+  { name: "server", port: PORTS.server },
+  { name: "frontend", port: PORTS.web },
 ];
 const busy = await busyPorts(ports);
 if (busy.length) {
   fatal(`port dipakai proses lain: ${busy.map((b) => `${b.port} (${b.name})`).join(", ")}. Hentikan proses itu dulu, misalnya node dari "npm run chain". Periksa dengan: ss -ltnp | grep -E ':(${busy.map((b) => b.port).join("|")})\\b'`);
 }
-cleanDemoData();
-console.log(`data demo dibersihkan: ${relative(ROOT, DEMO_DIR)}`);
+if (resetOnly || fresh) {
+  resetAllData();
+  console.log("semua data lokal dihapus: data/, alamat kontrak lokal, laporan demo");
+} else {
+  cleanDemoData();
+  console.log(`data demo dibersihkan: ${relative(ROOT, DEMO_DIR)}`);
+}
+if (resetOnly) {
+  console.log("Reset selesai. Tidak ada layanan yang hidup. Berikutnya: npm run demo:fresh (kosong, untuk manual) atau npm run demo (dengan skenario).");
+  console.log("Data browser tidak ikut terhapus: pakai jendela penyamaran baru atau hapus data situs localhost:3000.");
+  process.exit(0);
+}
 
 // --------------------------------------------------------------------- 2-3. tumpukan
 const remember = (...p: Proc[]) => {
@@ -130,10 +151,14 @@ try {
   console.log(`${Object.keys(deployments.contracts).length} kontrak ter-deploy. Wiring: ${wiring}`);
 
   stage("Layanan");
-  services = await startServices({ keep: true, keepDir: join(DEMO_DIR, "services"), serverEnv: { ESCROW_REQUIRED: "true" } });
+  // Browser memanggil server, zk-sim, dan storage langsung, jadi ketiganya harus mengizinkan asal frontend.
+  const origins = `${WEB},http://127.0.0.1:${PORTS.web}`;
+  process.env.CORS_ORIGIN ??= origins;
+  process.env.ZK_CORS_ORIGIN ??= origins;
+  process.env.STORAGE_CORS_ORIGIN ??= origins;
+  services = await startServices({ keep: true, keepDir: join(DEMO_DIR, "services"), ports: PORTS, serverEnv: { ESCROW_REQUIRED: "true" } });
   remember(...services.procs);
   console.log(`storage ${services.urls.storage}  zk ${services.urls.zk}  server ${services.urls.server}`);
-  if (services.urls.storage !== STORAGE || services.urls.zk !== ZK || services.urls.server !== SERVER) throw new Error("URL layanan tidak sesuai port bawaan");
 
   stage("Frontend (build, sekitar satu menit)");
   const webEnv: NodeJS.ProcessEnv = {
@@ -149,6 +174,18 @@ try {
 } catch (e) {
   await stopRecorded();
   fatal((e as Error).message);
+}
+
+if (fresh) {
+  stage("Siap, tanpa skenario");
+  console.log(`frontend  ${WEB}  (akun bawaan tercantum di /login)`);
+  console.log(`storage   ${STORAGE}`);
+  console.log(`API       ${SERVER}/api`);
+  console.log(`node      ${rpcUrl}`);
+  console.log("Belum ada identitas terdaftar, naskah, atau artikel. Langkah manual: README, bagian M11.");
+  console.log("Data browser tidak ikut terhapus: pakai jendela penyamaran baru atau hapus data situs localhost:3000.");
+  console.log("Hentikan dengan: npm run demo:stop");
+  process.exit(0);
 }
 
 // --------------------------------------------------------------------- 4. skenario
