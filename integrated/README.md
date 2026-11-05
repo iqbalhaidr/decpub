@@ -9,14 +9,14 @@ Urutan kerja: `../docs/PLAN.md`. Status: `../docs/PROGRESS.md`.
 revisi, zona abu-abu, dan penolakan (M5), kontrak escrow dan insentif Hugo (M6), serta insentif di backend
 (APC di muka, QoS, imbalan otomatis, klaim, reputasi, refund; M7) berjalan. Pasca-publikasi dan pelengkap Roihan
 (DOI NFT, selective disclosure, open review, komentar, statistik agregat; M8) berjalan.
-Frontend polos untuk halaman publik, akun, dan secret (M9) berjalan; halaman per peran menyusul (M10 dst).
+Frontend polos untuk halaman publik, akun, secret (M9), dan seluruh aksi penulis (M10) berjalan; halaman editor, penelaah, dan admin menyusul (M11).
 Target akhir: `npm install && npm run demo`.
 
 ## Prasyarat
 
 - Node >= 22 (diuji di Node 24.11.0), npm 11.
 
-## Menjalankan (M0 sampai M9)
+## Menjalankan (M0 sampai M10)
 
 ```bash
 cd integrated
@@ -45,6 +45,7 @@ npm run demo:m6          # demo/regresi M6: escrow, refund, timeout, distribusi 
 npm run demo:m7          # demo/regresi M7: APC di muka, imbalan sesuai kualitas, laporan QoS = hash on-chain, klaim, reputasi per epoch, q4 sesi kedua, refund (prasyarat sama)
 npm run demo:m8          # demo/regresi M8: verifikasi bidang menentukan kandidat, DOI, artikel anonim, open review, komentar, selective disclosure, revisi + DOI versi 2 (prasyarat sama)
 npm run demo:m9          # demo/regresi M9: frontend diuji di Chrome sungguhan (prasyarat di bawah)
+npm run demo:m10         # demo/regresi M10: alur penulis penuh di Chrome sungguhan tanpa MetaMask (butuh chain + deploy:local, Chrome, port 3000 bebas)
 ```
 
 ### Frontend polos (M9)
@@ -67,6 +68,30 @@ atau `127.0.0.1:3000` (keduanya diizinkan CORS server).
 Alamat backend, RPC, gateway storage, dan zk-sim diatur lewat `frontend/.env.local.example` (`NEXT_PUBLIC_*`).
 Dev dan build memakai webpack (`--webpack`) karena Turbopack tidak memetakan impor `./x.js` ke `x.ts` di `@decpub/shared`.
 ```
+
+### Frontend penulis (M10)
+
+Seluruh peran penulis bisa dicoba dari browser, tanpa MetaMask (di jaringan lokal, setor APC memakai akun Hardhat terbuka; di Sepolia memakai
+MetaMask). Halaman: `/author` (naskah saya), `/author/apc`, `/author/submit`, `/author/sessions/<id>`, `/author/revise`, `/author/disclose`.
+Editor dan penelaah belum punya halaman (M11); aksi mereka dijalankan skrip.
+
+Jalur manual (setelah `npm run chain`, `npm run deploy:local`, lalu layanan hidup):
+
+1. `/register` lalu `/login` sebagai penulis. Di `/profile`: buat secret (ekspor!), daftarkan identitas.
+2. `/author/apc`: beli satu note (setor 0,01 ETH ke escrow). Ekspor rahasia note juga; kehilangannya berarti kehilangan APC.
+3. `/author/submit`: isi form, pilih berkas PDF atau PDF contoh (`clean`, `identity-exposed`, `plagiarized`, ...), pilih note, Ajukan.
+   Halaman mencatat tiap langkah: unggah, pseudonim (bukti zk-sim), tanda tangan EIP-712, ikat APC.
+4. `/author/sessions/<id>`: status on-chain, hash, hasil P03 beserta peringatan `identityExposed`, posisi pada alur, escrow. Halaman memuat ulang tiap 5 detik.
+5. Editor dan penelaah: `DEMO_KEEP=1 npm run demo:m8` menjalankan sisi mereka untuk sesi baru, atau pakai skrip pada `scripts/lib/flow.ts`.
+   Saat status `MinorRevisionRequired`/`MajorRevisionRequired`, `/author/revise` membuka; setelah `Published`, `/author/disclose` membuka.
+6. Naskah ditolak sebelum ada penelaah (gagal P03 atau desk reject): di halaman sesi, "Buat alamat baru" lalu "Refund".
+
+```bash
+npm run demo:m10         # otomatis: membangun frontend, membukanya di Chrome sungguhan, menempuh langkah 1-6 dan memeriksa privasi
+```
+
+Penulis memanggil zk-sim langsung dari browser (butuh CORS; asal bawaan `localhost:3000` dan `127.0.0.1:3000`, env `ZK_CORS_ORIGIN`),
+karena secret tidak boleh lewat server. Bukti zk-sim adalah **simulasi**: zk-sim melihat witness.
 
 `demo:m6` memajukan jam chain lebih dari 180 hari dan `demo:m7` beberapa hari (`evm_increaseTime`). Tidak merusak demo lain; jalankan ulang
 `npm run chain` dan `npm run deploy:local` bila ingin jam chain kembali normal.
@@ -108,7 +133,7 @@ packages/incentive-core/  salinan mesin insentif Hugo (normalisasi, BWM, ECWM, f
 services/zk-sim/          attestor bukti ZK simulasi (Express)
 scripts/milestones/       demo:mN, dipertahankan sebagai uji regresi
 scripts/lib/              klien skrip (Member, Api, flow), layanan proses nyata (services.ts, mode DEMO_KEEP), pengendali Chrome (browser.ts)
-frontend/                 Next.js polos (M9): halaman publik, akun, secret; WalletProvider (dipakai M10)
+frontend/                 Next.js polos: halaman publik, akun, secret (M9), aksi penulis (M10); WalletProvider
 contracts/
   contracts/ciko/         9 kontrak Ciko (salinan; hanya EphemeralAccounts diubah)
   contracts/zk/           IZkVerifier, SimulatedZkVerifier

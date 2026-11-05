@@ -8,6 +8,13 @@ export const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://127.0.0.1:3001
 
 export const api = axios.create({ baseURL: API_URL, timeout: 30_000 });
 
+/**
+ * Klien TANPA token. Aksi pseudonim (membuat pseudonim, nonce, ikat dan refund APC) tidak boleh membawa JWT:
+ * server tidak boleh bisa menautkan pseudonim atau note ke akun lewat permintaan itu. `api` di atas diberi
+ * header Authorization oleh AuthProvider; instance ini tidak pernah.
+ */
+export const anonApi = axios.create({ baseURL: API_URL, timeout: 60_000 });
+
 /** GET JSON untuk halaman server. Melempar galat dengan pesan yang bisa ditampilkan apa adanya. */
 export async function getJson<T>(path: string): Promise<T> {
   try {

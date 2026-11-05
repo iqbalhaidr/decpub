@@ -214,3 +214,25 @@ export interface IncentiveView {
     }[];
   };
 }
+
+/** Balasan `GET /flows/sessions/:id` (hanya pemilik naskah). */
+export interface OwnerDetail {
+  manuscriptId: string;
+  sessionId: string;
+  title: string;
+  journalId: number;
+  submitted: boolean;
+  session: SessionProjection["session"] | null;
+  automaticCheck: { batch: number; result: string; recordedAt: number; reportURI?: string } | null;
+  report: CheckReport | null;
+  warnings: string[];
+  anonymizedManuscriptUrl?: string;
+}
+
+/** Balasan `GET /manuscripts/:id/manifest` (hanya pemilik): metadata memuat identitas penulis. */
+export interface Manifest {
+  id: string;
+  sessionId: string;
+  title: string;
+  metadata: { authorName?: string; authorEmail?: string; affiliation?: string; [k: string]: unknown };
+}

@@ -24,6 +24,19 @@ export interface ZkSimOptions {
   /** Penerbit kredensial yang dipercaya. */
   issuer: Address;
   chain: ChainReader;
+  /**
+   * Asal browser yang boleh memanggil zk-sim langsung (frontend membuat bukti di browser, bukan lewat server,
+   * supaya server tidak melihat secret). Kosong = tanpa header CORS (hanya klien non-browser).
+   */
+  corsOrigins?: string[];
+}
+
+/** Asal bawaan: frontend lokal. Dipisahkan koma pada env `ZK_CORS_ORIGIN`. */
+export function corsOriginsFromEnv(env: Record<string, string | undefined> = process.env): string[] {
+  return (env.ZK_CORS_ORIGIN ?? env.CORS_ORIGIN ?? "http://localhost:3000,http://127.0.0.1:3000")
+    .split(",")
+    .map((s) => s.trim())
+    .filter(Boolean);
 }
 
 const isBytes32 = (v: unknown): v is Hex => typeof v === "string" && isHex(v, { strict: true }) && v.length === 66;
@@ -34,6 +47,23 @@ export function createZkApp(opts: ZkSimOptions): Express {
 
   const app = express();
   app.disable("x-powered-by");
+  // CORS sederhana tanpa dependensi: hanya asal yang terdaftar yang diberi header; selain itu browser memblokir sendiri.
+  const allowed = new Set(opts.corsOrigins ?? []);
+  app.use((req: Request, res: Response, next: NextFunction) => {
+    const origin = req.headers.origin;
+    if (origin && allowed.has(origin)) {
+      res.setHeader("Access-Control-Allow-Origin", origin);
+      res.setHeader("Vary", "Origin");
+      res.setHeader("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
+      res.setHeader("Access-Control-Allow-Headers", "content-type");
+      res.setHeader("Access-Control-Max-Age", "600");
+    }
+    if (req.method === "OPTIONS") {
+      res.status(204).end();
+      return;
+    }
+    next();
+  });
   app.use(express.json({ limit: "64kb" }));
 
   app.get("/healthz", (_req, res) => {

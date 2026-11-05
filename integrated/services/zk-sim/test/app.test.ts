@@ -38,6 +38,7 @@ const ISSUER_KEY = devPrivateKey("zk-sim test issuer");
 const ROGUE_KEY = devPrivateKey("zk-sim test rogue issuer");
 const CHAIN_ID = 31337;
 const VERIFIER = "0x00000000000000000000000000000000000000aa" as const;
+const WEB_ORIGIN = "http://localhost:3000";
 const SESSION = ("0x" + "11".repeat(32)) as Hex;
 const SESSION_2 = ("0x" + "22".repeat(32)) as Hex;
 
@@ -77,6 +78,7 @@ before(async () => {
     verifier: VERIFIER,
     issuer: privateKeyToAccount(ISSUER_KEY).address,
     chain,
+    corsOrigins: [WEB_ORIGIN],
   });
   await new Promise<void>((r) => {
     server = app.listen(0, "127.0.0.1", () => r());
@@ -730,5 +732,27 @@ describe("zk-sim SELECTIVE_DISCLOSURE", () => {
     } catch (e) {
       assert.ok(!String((e as Error).message).includes(s.secret.slice(2)));
     }
+  });
+});
+
+describe("zk-sim CORS (browser memanggil langsung)", () => {
+  it("preflight dari asal frontend dijawab 204 dengan header izin", async () => {
+    const r = await fetch(`${base}/prove`, { method: "OPTIONS", headers: { origin: WEB_ORIGIN, "access-control-request-method": "POST", "access-control-request-headers": "content-type" } });
+    assert.equal(r.status, 204);
+    assert.equal(r.headers.get("access-control-allow-origin"), WEB_ORIGIN);
+    assert.match(r.headers.get("access-control-allow-headers") ?? "", /content-type/);
+  });
+
+  it("jawaban sebenarnya juga memuat header untuk asal yang diizinkan", async () => {
+    const r = await fetch(`${base}/info`, { headers: { origin: WEB_ORIGIN } });
+    assert.equal(r.status, 200);
+    assert.equal(r.headers.get("access-control-allow-origin"), WEB_ORIGIN);
+  });
+
+  it("asal lain tidak diberi header izin (browser akan memblokir)", async () => {
+    const r = await fetch(`${base}/info`, { headers: { origin: "http://evil.example" } });
+    assert.equal(r.headers.get("access-control-allow-origin"), null);
+    const pre = await fetch(`${base}/prove`, { method: "OPTIONS", headers: { origin: "http://evil.example", "access-control-request-method": "POST" } });
+    assert.equal(pre.headers.get("access-control-allow-origin"), null);
   });
 });

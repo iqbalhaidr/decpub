@@ -30,7 +30,7 @@ export class Page {
   /** Galat JavaScript dan console.error yang terjadi di halaman. */
   readonly errors: string[] = [];
   /** Semua permintaan jaringan yang dikirim halaman (URL, metode, isi), untuk memeriksa apa yang keluar dari browser. */
-  readonly requests: { url: string; method: string; body: string }[] = [];
+  readonly requests: { url: string; method: string; body: string; headers: Record<string, string> }[] = [];
 
   private constructor(private readonly ws: WebSocket) {
     ws.addEventListener("message", (ev) => {
@@ -42,8 +42,8 @@ export class Page {
         if (msg.error) p.reject(new Error(msg.error.message));
         else p.resolve(msg.result);
       } else if (msg.method === "Network.requestWillBeSent") {
-        const r = (msg.params as { request: { url: string; method: string; postData?: string } }).request;
-        this.requests.push({ url: r.url, method: r.method, body: r.postData ?? "" });
+        const r = (msg.params as { request: { url: string; method: string; postData?: string; headers?: Record<string, string> } }).request;
+        this.requests.push({ url: r.url, method: r.method, body: r.postData ?? "", headers: r.headers ?? {} });
       } else if (msg.method === "Runtime.exceptionThrown") {
         const d = (msg.params as { exceptionDetails?: { exception?: { description?: string }; text?: string } }).exceptionDetails;
         this.errors.push(d?.exception?.description ?? d?.text ?? "exception");
@@ -122,6 +122,24 @@ export class Page {
       Object.getOwnPropertyDescriptor(proto, 'value').set.call(el, ${JSON.stringify(value)});
       el.dispatchEvent(new Event('input', { bubbles: true }));
     })()`);
+  }
+
+  /** Memilih opsi `<select>` berdasarkan nilainya (dan memicu `change` seperti pengguna). */
+  async select(selector: string, value: string): Promise<void> {
+    await this.waitFor(`document.querySelector(${JSON.stringify(selector)})`);
+    await this.eval(`(() => {
+      const el = document.querySelector(${JSON.stringify(selector)});
+      el.value = ${JSON.stringify(value)};
+      el.dispatchEvent(new Event('change', { bubbles: true }));
+    })()`);
+  }
+
+  /** Mengisi `<input type="file">` dengan berkas dari disk, seperti memilih berkas lewat dialog. */
+  async setFile(selector: string, path: string): Promise<void> {
+    await this.waitFor(`document.querySelector(${JSON.stringify(selector)})`);
+    const doc = await this.send<{ root: { nodeId: number } }>("DOM.getDocument", { depth: 0 });
+    const node = await this.send<{ nodeId: number }>("DOM.querySelector", { nodeId: doc.root.nodeId, selector });
+    await this.send("DOM.setFileInputFiles", { nodeId: node.nodeId, files: [path] });
   }
 
   async click(selector: string): Promise<void> {

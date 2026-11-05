@@ -4,7 +4,7 @@ Diperbarui di akhir setiap sesi.
 
 ## Terakhir diperbarui
 
-2026-11-05, sesi M9.
+2026-11-05, sesi M10.
 
 ## Selesai
 
@@ -149,9 +149,27 @@ Diperbarui di akhir setiap sesi.
   - **Uji mutasi** (karena hasil lulus mudah): `secret` ditambahkan ke isi permintaan daftar identitas membuat 2 pemeriksaan gagal; `th { background; box-shadow }` membuat 3 pemeriksaan gagal (23 elemen berbayang). Keduanya dipulihkan. Pemeriksaan editorial pada sesi revisi gagal sebelum perbaikan server di atas, lulus sesudahnya.
   - **Tes:** `npm test` lulus seluruhnya (kontrak 265, shared 28, incentive-core 17, storage-sim 19, zk-sim 48, server 127; tidak ada tes baru, karena perubahan server hanya satu pemanggilan berulang yang tercakup `demo:m9`). `npm run typecheck` bersih (kini termasuk frontend). Regresi `demo:m3`, `demo:m4`, `demo:m5`, `demo:m8`, dan `check-wiring` (95/95) lulus.
 
+- **M10 selesai.** Semua kriteria terpenuhi dan dijalankan sendiri (`npm run demo:m10`, Chrome sungguhan lewat CDP **tanpa MetaMask**, node Hardhat, storage-sim, zk-sim, dan server sebagai proses nyata, tanpa mock; 80 pemeriksaan OK; lulus berulang kali, termasuk di chain yang baru dinyalakan):
+  - **Halaman penulis** (`frontend/src/app/author/`, semua client component, polos): `/author` (naskah saya + status), `/author/apc`, `/author/submit`, `/author/sessions/[id]`, `/author/revise`, `/author/disclose`. Bagian secret tetap di `/profile` (M9). Semua halaman dibungkus `AuthorGate` (login, secret ada di browser, identitas terdaftar, commitment secret = yang terdaftar; bila kurang, halaman menjelaskan dan menautkan ke Profil). Nav dan beranda memuat tautan Penulis.
+  - **Pustaka klien baru:** `lib/author.ts` (buat pseudonim, tanda tangan `CreateSession`/`RecordRevision`, ikat/refund note, beli note, selective disclosure; semua kripto dari `@decpub/shared` yang sama dengan server dan skrip), `lib/notes.ts` (note di localStorage per akun; disimpan `pending` SEBELUM transaksi setor dikirim supaya tab yang tertutup tidak menghilangkan dana), `lib/sessions.ts`, `api.ts` + `anonApi` (klien tanpa token untuk aksi pseudonim dan APC).
+  - **zk-sim**: CORS sederhana tanpa dependensi (`ZK_CORS_ORIGIN`, bawaan `localhost:3000` dan `127.0.0.1:3000`); asal lain tidak diberi header. Browser memanggil zk-sim langsung karena secret tidak boleh lewat server. +3 tes.
+  - **`/author/apc`**: nominal APC dari chain, jenis dompet (dev lokal atau MetaMask), beli note (rahasia dibuat di browser, setor lewat `WalletProvider`, tunggu receipt), tabel note dengan keadaan di chain (disetor, sudah terikat), ekspor dan impor rahasia note.
+  - **`/author/submit`**: form, berkas PDF atau PDF contoh (`clean`, `identity-exposed`, `plagiarized`, `incomplete`, `too-long`), pilih note (atau "beli baru"), lalu langkah tercatat di halaman: unggah, pseudonim (bukti zk-sim, relay tanpa token), tanda tangan EIP-712, pengajuan, ikat APC. Note diperiksa **sebelum** mengunggah apa pun, jadi pengajuan yang pasti gagal tidak meninggalkan naskah setengah jadi.
+  - **`/author/sessions/[id]`**: status, hash on-chain, tautan naskah anonim, P03 lengkap, **peringatan `identityExposed`**, posisi pada alur (putusan editorial, penelaah, keputusan, DOI), escrow, ikat APC bila sesi menunggu APC, periksa ulang `Incomplete`, **refund ke alamat baru** (alamat dibuat di browser, kuncinya ditampilkan; bila catatan ikatan note hilang, penulis memilih note dari hasil impor dan zk-sim menolak note yang salah). Memuat ulang tiap 5 detik.
+  - **`/author/revise`**: hanya sesi `*RevisionRequired`, menampilkan putusan, unggah revisi lalu tanda tangan `RecordRevision`. **`/author/disclose`**: hanya sesi `Published`, pilih atribut (nama, afiliasi, surel; surel tidak dicentang bawaan) dan naskah asli, peringatan permanen dan kotak konfirmasi wajib, tombol nonaktif sebelum konfirmasi.
+  - **Hasil `demo:m10`:**
+    - A. Penulis dari nol lewat halaman: daftar, masuk, gerbang menolak tanpa secret / identitas belum terdaftar / secret tidak cocok; buat secret, daftarkan identitas; beli note (rahasia di localStorage, commitment = turunan rahasia, saldo EscrowPool naik tepat satu APC, penyetor akun dompet bukan operator); pengajuan tanpa memilih note ditolak sebelum ada naskah di server; ajukan dengan berkas PDF sungguhan lewat input file: status `UnderEditorialScreening`, hash di halaman = API, P03 Pass, naskah anonim terunduh dengan sha256 = on-chain, naskah asli tidak ada di storage publik. Editor dan tiga penelaah (skrip): Minor, lalu halaman sesi menampilkan status dan tautan "Kirim revisi"; revisi dikirim dari browser: hash asli, anonim, metadata, dan URI berubah, `revisionCount` 1, batch 2 dipilih sistem; semua Accept → `Published` dengan DOI; artikel anonim sebelum pengungkapan; pengungkapan dari browser (nama dan afiliasi, tanpa surel, dengan naskah asli): artikel menampilkan keduanya, `attributesVerified`, sha256 naskah asli = `originalManuscriptHash`, pseudonim tertaut = pseudonim Author sesi, akun permanen = turunan secret; pengungkapan kedua tidak ditawarkan.
+    - B. PDF contoh dengan nama di isi: halaman sesi menampilkan PERINGATAN `identityExposed` tanpa mengubah hasil (P03 tetap Pass); note baru dibeli dalam alur pengajuan; editor desk reject → `Rejected`; refund dari halaman sesi ke alamat baru (saldo awal 0, akhir tepat satu APC), escrow `Refunded`, tombol refund hilang, penerima bukan penyetor dan bukan akun permanen; refund tanpa alamat ditolak di klien.
+    - C. Gagal P03 (plagiarisme): `Rejected`, boleh refund. Catatan ikatan note dihapus dari browser: halaman meminta memilih note; tanpa memilih ditolak di klien; note yang salah ditolak zk-sim dan dana tidak bergerak; note yang benar → refund sampai.
+    - D. Privasi (dari semua permintaan jaringan browser): dari 121 permintaan ke server, tak satu pun (URL maupun isi) memuat secret identitas atau rahasia note; secret hanya ke zk-sim sebagai witness (9 permintaan, simulasi); permintaan RPC tanpa secret; 12 permintaan aksi pseudonim dan APC (pseudonim, nonce, ikat, refund) **tanpa header Authorization**, aksi pemilik (intake, pengajuan, revisi, pengungkapan) memakainya; permintaan ikat APC hanya `sessionId, nullifier, proof`; permintaan pengajuan tanpa nama/surel. Pemindaian ledger (67 transaksi sejak setelah pendaftaran identitas): tanpa commitment identitas, secret, nama, afiliasi, surel, rahasia atau commitment note, alamat dompet penyetor, atau akun permanen; transaksi setor APC memuat commitment note dan penyetor tetapi tidak sesi apa pun; transaksi pengungkapan memuat akun permanen dan hash atribut, bukan nama sebagai teks.
+    - E. Polos: halaman penulis tanpa `className`, `style=`, gambar/ikon/font; tetap satu CSS di bawah 15 baris; gaya terhitung di browser untuk enam halaman: nol bayangan, sudut membulat, animasi, warna latar, dan media. Tangkapan layar (`demo-output/m10/*.png`) saya lihat sendiri: teks hitam di latar putih, tabel berbingkai tipis, kontrol form bawaan.
+  - **Tes:** `npm test` lulus seluruhnya: kontrak 265, shared 28, incentive-core 17, storage-sim 19, **zk-sim 51** (+3 CORS), server 127. `npm run typecheck` bersih. Regresi `demo:m1` sampai `demo:m9` dan `check-wiring` (95/95) lulus (dijalankan berurutan pada satu chain; `demo:m9` setelah `DEMO_KEEP=1 npm run demo:m8`).
+  - **Uji mutasi** (karena hasil lulus mudah): membuat pseudonim lewat klien ber-JWT membuat "aksi pseudonim TANPA token" gagal; secret ikut ke isi permintaan pengajuan membuat "secret tidak pernah dikirim ke server" gagal; pengungkapan yang selalu menyertakan surel membuat 2 pemeriksaan gagal. Semua dipulihkan. Dua kegagalan yang ditemukan sendiri adalah bug skrip tes, bukan sistem: pemeriksaan "tanpa surel" ikut membaca navigasi (yang memang menampilkan surel pengguna yang sedang masuk), dan satu pemeriksaan membaca teks halaman sebelum manifes selesai dimuat (race, hanya muncul sekali, pada putaran regresi penuh).
+  - **`scripts/lib/browser.ts`** mendapat `select`, `setFile` (input file lewat CDP), dan header permintaan pada `Page.requests`.
+
 ## Tersisa
 
-Milestone berikutnya: **M10, frontend penulis** (`/author/apc`, `/author/submit`, `/author/sessions/[id]`, `/author/revise`, `/author/disclose`; bagian secret di `/profile` sudah ada dari M9; `WalletProvider` sudah ada). Butuh CORS di zk-sim (browser membuat bukti ke zk-sim langsung). M10 sampai M13 belum dikerjakan. Pekerjaan backend yang belum ada: tenggat otomatis.
+Milestone berikutnya: **M11, frontend editor dan penelaah** (`/editor`, `/admin`, `/reviewer/assignments`, `/reviewer/specialization`, `/review/[sessionId]`, `/reviewer/earnings`; plus pengungkapan opsional editor di `/author/disclose` atau halaman editor, dan langkah uji manual di `integrated/README.md`). Pola yang bisa dipakai ulang: `AuthorGate` (ganti syarat peran), `lib/author.ts` (pseudonim, tanda tangan), `anonApi`. Data commit telaah tertunda harus berkunci sesi+slot di localStorage (catatan M5). M12 dan M13 belum dikerjakan. Pekerjaan backend yang belum ada: tenggat otomatis.
 
 Dari M7 yang belum dikerjakan (lihat Masalah terbuka): tenggat otomatis fase telaah dan timeout refund otomatis, penutupan sesi `Incomplete` oleh penulis.
 
@@ -365,6 +383,24 @@ Tidak ada yang bertentangan dengan `arsitektur.md` atau `analisis/` pada tingkat
 - **Perilaku yang perlu diketahui untuk M10:** `localStorage` menyimpan satu secret per akun (`decpub.secret.<userId>`) dan token JWT (`decpub.token`); data commit tertunda berkunci sesi+slot (catatan M5) harus disimpan di sana juga. Profil menampilkan secret langsung setelah dibuat, sesudah itu tersembunyi sampai tombol ditekan. Pembuatan ulang secret menimpa tanpa pemulihan setelah konfirmasi.
 - **`npm run build -w frontend` menulis `frontend/next-env.d.ts` dan `.next/`**; keduanya diabaikan git. `npm install` menambah 140 paket; rantai `npm audit` (16 high, 1 critical) belum diperiksa, sama seperti M0.
 
+## Temuan di lapangan (M10)
+
+Tidak ada yang bertentangan dengan `arsitektur.md` atau `analisis/` pada tingkat desain, sehingga tidak ada yang saya hentikan untuk ditanyakan. Keputusan kecil yang saya ambil sendiri (semuanya reversibel; mohon dikoreksi bila tidak setuju):
+
+- **Node Hardhat mengizinkan CORS dari asal mana pun** (`Access-Control-Allow-Origin: *`), jadi browser di `localhost:3000` bisa memanggil RPC dan menandatangani transaksi dengan akun terbuka. Ini hanya berlaku untuk node dev. Jalur **MetaMask (`BrowserWalletProvider`) belum pernah dijalankan**: tidak ada MetaMask di lingkungan ini. Teruji hanya `DevWalletProvider`, dan baru M13 yang akan memakainya di Sepolia. Pengujian MetaMask harus dikerjakan manusia.
+- **Dompet dev memilih akun penyetor acak** dari akun terbuka indeks >= 5 tiap kali, jadi catatan penyetor di `/author/apc` bisa berbeda antarnote. Itu disengaja (menyerupai pengguna dengan banyak dompet), bukan galat.
+- **Rahasia note dan secret tidak pernah ke server**, tetapi keduanya ke zk-sim sebagai witness (simulasi: zk-sim melihatnya). Server di port berbeda dari zk-sim, jadi bukti dibuat dari browser langsung. Pada sirkuit nyata witness tetap di browser; `ZkProver.prove` sudah menjadi satu-satunya titik penggantian.
+- **Server tetap bisa menautkan akun penulis ke pseudonim Author-nya** saat pengajuan dan revisi (JWT dikirim bersama aksi bertanda tangan pseudonim). Sudah dikenal dari M3/M5 (server tepercaya untuk kepemilikan naskah); yang baru dibuktikan di sini adalah bahwa permintaan **pembuatan pseudonim, nonce, ikat APC, dan refund** tidak membawa token sama sekali. Penautan oleh server pada pengajuan tidak berubah.
+- **Nav menampilkan surel pengguna yang sedang masuk** (milik sendiri). Pemeriksaan "tanpa surel" pada halaman publik harus mengecualikan navigasi.
+- **Pengajuan yang gagal di tengah** (mis. setelah unggah, sebelum tanda tangan) meninggalkan naskah "hanya intake": tampil di `/author` sebagai "(hanya intake; ajukan ulang)" dan tidak bisa dilanjutkan; pengguna mengajukan ulang (intake baru, sesi baru). Note dipilih dulu dan diperiksa sebelum unggah, sehingga penyebab paling umum (tanpa APC) tidak meninggalkan sisa. Melanjutkan naskah intake bisa ditambahkan bila perlu.
+- **Refund butuh note yang tepat.** Catatan "note terikat ke sesi" hanya ada di browser yang mengikatnya. Bila data browser hilang, penulis mengimpor rahasia note dari ekspor lalu memilihnya di halaman sesi; note yang salah ditolak zk-sim (diuji). Ini jalur pemulihan; tanpa ekspor rahasia note, APC tidak bisa diambil (keputusan M6, sengaja).
+- **Halaman pengungkapan hanya untuk penulis.** Pengungkapan opsional editor (role 2) menunggu M11, bersama halaman editor.
+- **`/author/*` juga terbuka bagi akun berperan penelaah** (server mengizinkan penelaah mengajukan naskah, M3). Tidak ada halaman penelaah di M10.
+- **Secret di browser lain.** Secret dan note hanya di `localStorage` browser tempat dibuat (kunci per akun). Pindah browser membutuhkan impor lewat `/profile` dan `/author/apc`; jika lupa mengekspor, hilang.
+- **`frontend/package.json` memuat skrip `check-plain` yang menunjuk `scripts/check-plain.mjs` yang tidak ada** (sisa M9, belum disentuh; kepolosan diperiksa `demo:m9`/`demo:m10`).
+- **Skrip tes yang dua kali gagal pada putaran awal adalah bug skrip, bukan sistem** (lihat uji mutasi di atas); dicatat supaya pemeriksaan "tanpa surel" dan pembacaan halaman asinkron di demo M11 tidak mengulanginya (baca ulang teks halaman setelah `waitForText` data yang dimuat asinkron).
+- Tidak diuji: tampilan di browser selain Chrome, layar sempit, dan penggunaan keyboard saja; pemeriksaan polos mengukur gaya terhitung, bukan kenyamanan.
+
 ## Masalah terbuka
 
 - Kode Roihan belum pernah dijalankan. Kontrak Hugo asli tidak dijalankan; yang diuji adalah kontrak turunannya (M6). Pembandingan langsung dengan `Hugo/` asli (mis. `npm run test:contracts` Hugo) belum dilakukan; angka Lampiran B direproduksi dari data dan rumusnya.
@@ -372,15 +408,15 @@ Tidak ada yang bertentangan dengan `arsitektur.md` atau `analisis/` pada tingkat
 - Penelaah yang tidak commit atau reveal ditangani admin (`close-phase`, M5). **Tenggat otomatis tetap belum ada** (tidak masuk kriteria M7): tidak ada penjadwal di server, jadi `close-phase` dan refund timeout (`POST /escrow/refund` oleh penulis, `closeAfterRefund` menutup sesi) tetap dipicu manusia. Refund timeout teruji di kontrak (M6) dan penutupan sesinya di tes unit M7, tetapi belum didemokan di chain melalui server. Penelaah yang tidak mengikat penugasan dan editor yang tidak merespons belum punya jalur pengganti.
 - Dua keputusan terbuka di "Temuan di lapangan (M4)": tautan pseudonim di server saat pengikatan, dan pembuatan pseudonim yang tak dibatasi undangan.
 - `npm install` melaporkan kerentanan pada rantai dev; belum diperiksa (sama seperti M0).
-- Frontend/zk-sim: CORS zk-sim belum diatur (M10: browser memanggil zk-sim langsung untuk membuat bukti). CORS server sudah mencakup `localhost` dan `127.0.0.1` (M9).
+- CORS zk-sim dan server mencakup `localhost:3000` dan `127.0.0.1:3000` (M9, M10). Untuk host lain isi `CORS_ORIGIN` (server) dan `ZK_CORS_ORIGIN` (zk-sim).
 - Frontend dijalankan dengan webpack, bukan Turbopack (temuan M9). Dev server (`npm run frontend`) hanya diuji dapat menyala dan melayani halaman; `demo:m9` menguji build produksi.
-- Frontend baru melayani halaman publik, akun, dan secret. Aksi penulis (M10), editor, penelaah, dan admin (M11) belum punya halaman; sementara dijalankan skrip `demo:m*`.
+- Frontend melayani halaman publik, akun, secret, dan seluruh aksi penulis (M10). Aksi editor, penelaah, dan admin (M11) belum punya halaman; sementara dijalankan skrip `demo:m*`. Jalur MetaMask belum pernah dijalankan (lihat temuan M10).
 - Tiga keputusan M6 sudah dijawab (terima kondisi sekarang), bukan lagi terbuka. Refund `Incomplete` tetap hanya lewat timeout; penutupan sesi `Incomplete` oleh penulis (selain timeout) tidak ada.
 - Empat batasan M7 (pembulatan klaim reputasi ke bawah, 10 pseudonim terbaru, kebijakan terkunci hanya di server, tanpa tenggat otomatis) sudah disetujui dan tercatat di arsitektur bagian 13; bukan lagi terbuka.
 - Tidak ada pembatasan laju (rate limit) di endpoint tanpa JWT (`/escrow/*`, `/flows/*`, `/incentive/*`); bukan masalah untuk demo, perlu bila dipakai di luar lokal.
 - Kompatibilitas pragma `^0.8.24` kontrak Roihan: **tertutup di M8** (`DOIToken` dan `DOILib` terkompilasi di solc 0.8.28 dan OpenZeppelin 5.6.1). Kontrak Hugo ditulis ulang dengan pragma `^0.8.28` dan dikompilasi di M6.
 - Dua keputusan M8 (bentuk "kontribusi agregat", nama editor tak terverifikasi) sudah dijawab (terima kondisi sekarang), bukan lagi terbuka.
-- Pengungkapan identitas tidak bisa dicabut (satu kali, permanen di ledger). Perlu peringatan jelas di UI M10.
+- Pengungkapan identitas tidak bisa dicabut (satu kali, permanen di ledger). UI `/author/disclose` (M10) memperingatkan dan mewajibkan kotak konfirmasi.
 - `DOIToken.postComment` oleh relayer: `reader` di event selalu operator (lihat temuan M8).
 - M13 butuh RPC Sepolia, kunci deployer baru, dan ETH testnet dari pengguna.
 
@@ -420,6 +456,10 @@ DEMO_KEEP=1 npm run demo:m8   # menyisakan storage :8081, zk :8082, server :3001
 npm run demo:m9               # membangun frontend, menyalakannya di :3000, menguji di Chrome sungguhan (butuh google-chrome; atau isi CHROME_BIN), tangkapan layar di demo-output/m9
 npm run frontend              # mencoba sendiri di browser: http://localhost:3000 (dev, webpack); `npm run build:frontend` lalu `npm run start -w frontend` untuk produksi
 kill $(cat data/demo-keep/pids)   # menghentikan layanan yang disisakan
+
+# M10: alur penulis lewat browser, otomatis. Butuh chain + deploy:local, Chrome, dan port 3000 bebas; menyalakan layanan dan frontend sendiri.
+npm run demo:m10              # membangun frontend melawan layanan demo, membuka Chrome sungguhan (tanpa MetaMask), tangkapan layar di demo-output/m10
+# Mencoba manual: lihat integrated/README.md bagian "Frontend penulis (M10)".
 ```
 
 Target akhir: `cd integrated && npm install && npm run demo`.

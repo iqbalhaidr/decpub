@@ -2,7 +2,7 @@
 import { resolve } from "node:path";
 import { attestorAddress, issuerAddress, loadPrivateKey } from "@decpub/shared";
 import { contractAddress, readDeployments } from "@decpub/shared/node";
-import { createZkApp } from "./app.js";
+import { corsOriginsFromEnv, createZkApp } from "./app.js";
 import { rpcChainReader } from "./chain.js";
 
 const network = process.env.NETWORK ?? "localhost";
@@ -13,6 +13,7 @@ const port = Number(process.env.ZK_PORT ?? 8082);
 const host = process.env.ZK_HOST ?? "127.0.0.1";
 
 const app = createZkApp({
+  corsOrigins: corsOriginsFromEnv(),
   attestorPrivateKey: loadPrivateKey("ATTESTOR_PRIVATE_KEY", "zk attestor"),
   chainId: deployments.chainId,
   verifier: contractAddress(deployments, "SimulatedZkVerifier"),

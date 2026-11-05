@@ -40,10 +40,17 @@ export default async function Home() {
         <li><Link href="/profile">Profil</Link>: buat dan ekspor secret identitas, daftarkan identitas, lihat kredensial</li>
       </ul>
 
-      <h2>Per peran (belum tersedia di halaman ini)</h2>
+      <h2>Penulis</h2>
       <ul>
-        <li>Penulis: beli APC, ajukan naskah, revisi, ungkap identitas (M10)</li>
-        <li>Editor, penelaah, admin: undangan, putusan, telaah, klaim imbalan, verifikasi bidang (M11)</li>
+        <li><Link href="/author">Naskah saya</Link></li>
+        <li><Link href="/author/apc">Beli note APC</Link> (biaya pemrosesan artikel di muka, ke escrow)</li>
+        <li><Link href="/author/submit">Ajukan naskah</Link></li>
+        <li>Rincian sesi, <Link href="/author">revisi, dan pengungkapan identitas</Link> dibuka dari daftar naskah sesuai status</li>
+      </ul>
+
+      <h2>Editor, penelaah, admin (belum tersedia di halaman ini)</h2>
+      <ul>
+        <li>Undangan, putusan, telaah, klaim imbalan, verifikasi bidang (M11)</li>
         <li>Sementara aksi-aksi itu dijalankan skrip <code>npm run demo:m8</code> (lihat README)</li>
       </ul>
 
