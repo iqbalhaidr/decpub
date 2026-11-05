@@ -39,7 +39,8 @@
     "frontend": "npm run dev -w frontend",
     "build:frontend": "npm run build -w frontend",
     "demo:m9": "node --import tsx scripts/milestones/m9.ts",
-    "demo:m10": "node --import tsx scripts/milestones/m10.ts"
+    "demo:m10": "node --import tsx scripts/milestones/m10.ts",
+    "demo:m11": "node --import tsx scripts/milestones/m11.ts"
   },
   "engines": {
     "node": ">=22"

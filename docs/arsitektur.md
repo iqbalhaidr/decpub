@@ -625,6 +625,7 @@ Yang dipertahankan: `next`, `react`, `react-dom`, `viem`, `axios`.
 | Kontribusi agregat hanya di tingkat platform dan milik sendiri | Keputusan M8, disetujui pengguna | `GET /stats` (angka platform) dan `GET /me/contributions` (jumlah milik sendiri, wajib login). Tidak ada profil publik per anggota, karena menautkan identitas ke tingkat aktivitas |
 | Nama dan afiliasi editor saat disclosure adalah klaim sendiri | Keputusan M8, disetujui pengguna | Akun editor tidak punya data nama; hanya surel yang dicocokkan dengan akun. Untuk penulis semua atribut dicocokkan dengan data pengajuan oleh server (bukti ZK tidak menjamin kebenaran atribut) |
 | Pengungkapan identitas tidak bisa dicabut | Keputusan M8 | Satu kali per (sesi, peran); tautan pseudonim ke akun permanen publik selamanya. UI harus memperingatkan sebelum penulis memilih |
+| Data commit telaah hanya di browser penelaah | Keputusan M11 | Rekomendasi, teks, dan nonce pembukaan disimpan di `localStorage` sampai reveal karena server tidak boleh menyimpannya (matriks 8.3). Bila data hilang sebelum reveal, telaah tidak bisa dibuka dan penelaah dihitung no-show lewat tutup fase admin. Belum ada UI impor |
 | Komentar pembaca diposting relayer | Keputusan M8 | `reader` di event `CommentPosted` selalu operator; pembaca hanya dibedakan lewat nama tampilan per artikel |
 | ZK adalah simulasi | Instruksi pengguna | Attestor melihat witness dan sifat zero-knowledge tidak ada. Nilainya ada pada bentuk alur dan interface |
 | Tanpa audit keamanan | Lingkup | Tidak layak produksi |

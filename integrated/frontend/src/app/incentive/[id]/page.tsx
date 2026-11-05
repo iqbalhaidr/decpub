@@ -38,6 +38,17 @@ export default async function Incentive({ params }: { params: Promise<{ id: stri
     <div>
       <h1>Insentif penelaah, sesi <code>{shortHex(v.sessionId, 18)}</code></h1>
       <p><Link href={`/tracker/${v.sessionId}`}>Jejak sesi</Link></p>
+      <h2>Cara membaca halaman ini</h2>
+      <ol>
+        <li>Penulis membayar APC di muka ke escrow. Seluruh APC (bukan sebagian) dibagikan kepada penelaah yang membuka telaahnya, walau naskah akhirnya ditolak.</li>
+        <li>Setiap penelaah dinilai pada empat kriteria: q1 kecepatan (dari timestamp on-chain), q2 relevansi dan q3 actionability (heuristik [SIMULASI], bukan model bahasa), dan q4 reputasi (tingkat dari saldo SBT).</li>
+        <li>Bobot kriteria gabungan BWM (preferensi kebijakan jurnal, dikunci saat sesi dibuat) dan ECWM (dihitung dari data: entropi dan CRITIC), dicampur dengan λ.</li>
+        <li>Kontrak menghitung skor TOPSIS, mengubahnya dengan sigmoid, lalu membagi escrow sebanding dengan sigmoid. Tidak ada editor yang memilih bobot atau melihat identitas penelaah.</li>
+        <li>
+          Tabel hanya memuat <b>pseudonim sesi</b>, bukan nama, surel, atau alamat dompet. Penelaah mengklaim ke alamat baru dengan tanda tangan pseudonimnya, jadi imbalan tidak
+          tertaut ke dompet mana pun; yang tercatat hanya jumlah dan status klaim.
+        </li>
+      </ol>
 
       <h2>Escrow APC</h2>
       <table>

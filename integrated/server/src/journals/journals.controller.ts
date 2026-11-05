@@ -24,7 +24,7 @@ export class JournalsController {
   @ApiOperation({ summary: "Katalog jurnal: kategori, APC, kebijakan bobot insentif." })
   @Get()
   list() {
-    return { categories: this.journals.categories(), journals: this.journals.list() };
+    return { categories: this.journals.categories(), journals: this.journals.list(), weightPresets: [...WEIGHT_PRESETS] };
   }
 
   @Get(":id")

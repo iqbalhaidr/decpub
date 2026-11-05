@@ -16,7 +16,7 @@ Target akhir: `npm install && npm run demo`.
 
 - Node >= 22 (diuji di Node 24.11.0), npm 11.
 
-## Menjalankan (M0 sampai M10)
+## Menjalankan (M0 sampai M11)
 
 ```bash
 cd integrated
@@ -73,7 +73,7 @@ Dev dan build memakai webpack (`--webpack`) karena Turbopack tidak memetakan imp
 
 Seluruh peran penulis bisa dicoba dari browser, tanpa MetaMask (di jaringan lokal, setor APC memakai akun Hardhat terbuka; di Sepolia memakai
 MetaMask). Halaman: `/author` (naskah saya), `/author/apc`, `/author/submit`, `/author/sessions/<id>`, `/author/revise`, `/author/disclose`.
-Editor dan penelaah belum punya halaman (M11); aksi mereka dijalankan skrip.
+Halaman editor, penelaah, dan admin ada di bagian M11 di bawah.
 
 Jalur manual (setelah `npm run chain`, `npm run deploy:local`, lalu layanan hidup):
 
@@ -82,7 +82,7 @@ Jalur manual (setelah `npm run chain`, `npm run deploy:local`, lalu layanan hidu
 3. `/author/submit`: isi form, pilih berkas PDF atau PDF contoh (`clean`, `identity-exposed`, `plagiarized`, ...), pilih note, Ajukan.
    Halaman mencatat tiap langkah: unggah, pseudonim (bukti zk-sim), tanda tangan EIP-712, ikat APC.
 4. `/author/sessions/<id>`: status on-chain, hash, hasil P03 beserta peringatan `identityExposed`, posisi pada alur, escrow. Halaman memuat ulang tiap 5 detik.
-5. Editor dan penelaah: `DEMO_KEEP=1 npm run demo:m8` menjalankan sisi mereka untuk sesi baru, atau pakai skrip pada `scripts/lib/flow.ts`.
+5. Editor dan penelaah: lanjutkan dengan langkah uji manual M11 di bawah (atau `DEMO_KEEP=1 npm run demo:m8` bila ingin sisi mereka dijalankan skrip).
    Saat status `MinorRevisionRequired`/`MajorRevisionRequired`, `/author/revise` membuka; setelah `Published`, `/author/disclose` membuka.
 6. Naskah ditolak sebelum ada penelaah (gagal P03 atau desk reject): di halaman sesi, "Buat alamat baru" lalu "Refund".
 
@@ -95,6 +95,47 @@ karena secret tidak boleh lewat server. Bukti zk-sim adalah **simulasi**: zk-sim
 
 `demo:m6` memajukan jam chain lebih dari 180 hari dan `demo:m7` beberapa hari (`evm_increaseTime`). Tidak merusak demo lain; jalankan ulang
 `npm run chain` dan `npm run deploy:local` bila ingin jam chain kembali normal.
+
+### Frontend editor, penelaah, dan admin (M11)
+
+Seluruh alur bisa ditempuh manual di browser dengan lima login (penulis, editor, tiga penelaah) ditambah admin. Halaman: `/editor`, `/admin`,
+`/reviewer/assignments`, `/reviewer/specialization`, `/review/<ID sesi>`, `/reviewer/earnings`, dan `/incentive/<ID sesi>` (transparansi imbalan).
+Tiap anggota membuat secretnya sendiri di `/profile` (tersimpan per akun di `localStorage` browser yang sama, jadi satu browser cukup untuk semua peran;
+keluar lalu masuk sebagai peran berikutnya).
+
+**Persiapan.** Empat layanan di terminal terpisah, dengan database server yang **baru** (`rm -f data/server.sqlite`; akun seed dibuat otomatis):
+`npm run chain` lalu `npm run deploy:local` (sekali), kemudian `npm run storage`, `npm run zk`, `npm run server`, `npm run frontend`; buka http://localhost:3000.
+Akun seed ada di halaman `/login` (admin `admin@desci.local`/`admin123`, editor `editor@desci.local`/`editor123`, penelaah `rev1@mail.com`/`rev1` dst.).
+Hanya anggota yang **sudah mendaftarkan identitas** (langkah 1) yang menjadi kandidat seleksi. Karena itu daftarkan identitas hanya bagi editor
+`editor@desci.local` dan tiga penelaah yang ingin Anda pakai (mis. `rev1`, `rev2`, dan satu penelaah baru); penelaah seed lain jangan didaftarkan, supaya
+ketiganya pasti terpilih. Jangan memakai server sisa `demo:m*` untuk ini: skrip demo sudah mendaftarkan identitas semua akun seed dengan secret yang tidak
+dimiliki browser Anda (identitas hanya bisa didaftarkan sekali per akun).
+
+1. **Identitas.** Untuk editor dan tiga penelaah: `/login` lalu `/profile` → "Buat secret baru" (ekspor!) → "Daftarkan identitas".
+   Untuk penelaah yang baru mendaftar (`/register`, peran penelaah, pilih bidang): buka `/reviewer/specialization`, minta bidang `ai`.
+2. **Admin** (`/admin`): setujui permintaan bidang penelaah baru (tanpa persetujuan ia bukan kandidat dan tidak mendapat kredensial peran).
+3. **Penulis** (langkah M10): beli note di `/author/apc`, ajukan naskah di `/author/submit` (PDF contoh `clean`, isi abstrak).
+   Setelah P03-P04 sesi menjadi `UnderEditorialScreening` dan sistem mengundang editor.
+4. **Editor** (`/editor`): lihat undangan dan naskah anonim (PDF tanpa identitas penulis), "Terima undangan" (membuat pseudonim Editor di browser),
+   pilih putusan (Proceed dengan bidang penelaah, Revise, atau DeskReject), "Kirim putusan". Bila kandidat terverifikasi kurang dari tiga, halaman
+   menampilkan `TERTUNDA`; setelah admin menyetujui bidang, di `/admin` isi ID sesi lalu "Jalankan langkah sistem".
+5. **Penelaah** (`/reviewer/assignments`): "Terima" tiap undangan (pseudonim Reviewer baru dan pernyataan tingkat reputasi). Setelah ketiganya menerima,
+   buka `/review/<ID sesi>` (tautan "Telaah"): **langkah 1 commit** (rekomendasi + teks; hanya hash yang dikirim), lalu setelah ketiga penelaah commit,
+   **langkah 2 reveal**. Data commit hanya ada di browser itu sampai reveal: jangan membersihkan data situs di antaranya.
+6. **Keputusan dan terbit**: setelah ketiga reveal sistem memutuskan; tiga `AcceptAsIs` berujung `Published` dengan DOI di `/articles`.
+7. **Imbalan** (`/reviewer/earnings`, tiap penelaah): "Buat alamat baru" lalu "Klaim imbalan" (simpan kunci privat alamat itu), lalu "Klaim reputasi".
+   `/incentive/<ID sesi>` menjelaskan asal imbalan: hanya pseudonim, tanpa alamat dompet.
+8. **Epoch** (`/admin`): "Picu epoch" memint klaim reputasi berkelompok; saldo tampil di `/reviewer/earnings`.
+9. **Opsional**: editor mengungkap identitas di `/editor` (sesi `Published`); penulis di `/author/disclose`; penelaah tidak pernah. Komentar pembaca di halaman artikel.
+10. **Cabang lain**: DeskReject oleh editor lalu refund oleh penulis (`/author/sessions/<id>`); penelaah yang tidak merespons: `/admin` → "Tutup fase".
+
+```bash
+npm run demo:m11         # otomatis: langkah 1-10 di Chrome sungguhan (lima login + admin), dengan pemeriksaan privasi dan polos
+```
+
+Catatan: browser menghitung CID dokumen telaah lewat `POST /api/v0/add?only-hash=true` ke storage (teks telaah tidak boleh lewat server sebelum reveal),
+jadi storage-sim mengizinkan CORS dari `localhost:3000` dan `127.0.0.1:3000` (env `STORAGE_CORS_ORIGIN`). Pada Kubo, setel
+`API.HTTPHeaders.Access-Control-Allow-Origin`. Jalur MetaMask belum pernah dijalankan (tidak ada MetaMask di lingkungan uji).
 
 ### Storage publik (M1)
 
@@ -133,7 +174,7 @@ packages/incentive-core/  salinan mesin insentif Hugo (normalisasi, BWM, ECWM, f
 services/zk-sim/          attestor bukti ZK simulasi (Express)
 scripts/milestones/       demo:mN, dipertahankan sebagai uji regresi
 scripts/lib/              klien skrip (Member, Api, flow), layanan proses nyata (services.ts, mode DEMO_KEEP), pengendali Chrome (browser.ts)
-frontend/                 Next.js polos: halaman publik, akun, secret (M9), aksi penulis (M10); WalletProvider
+frontend/                 Next.js polos: halaman publik, akun, secret (M9), penulis (M10), editor, penelaah, admin (M11); WalletProvider
 contracts/
   contracts/ciko/         9 kontrak Ciko (salinan; hanya EphemeralAccounts diubah)
   contracts/zk/           IZkVerifier, SimulatedZkVerifier

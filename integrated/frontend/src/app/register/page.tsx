@@ -45,14 +45,14 @@ export default function Register() {
         <p>Password (min. 4 karakter): <input type="password" value={password} onChange={(e) => setPassword(e.target.value)} minLength={4} required /></p>
         <p>
           Peran:{" "}
-          <label><input type="radio" name="role" checked={role === "author"} onChange={() => setRole("author")} /> penulis</label>{" "}
-          <label><input type="radio" name="role" checked={role === "reviewer"} onChange={() => setRole("reviewer")} /> penelaah</label>
+          <label><input type="radio" name="role" value="author" checked={role === "author"} onChange={() => setRole("author")} /> penulis</label>{" "}
+          <label><input type="radio" name="role" value="reviewer" checked={role === "reviewer"} onChange={() => setRole("reviewer")} /> penelaah</label>
         </p>
         {role === "reviewer" && (
           <p>
             Bidang keahlian (minimal satu):{" "}
             {FIELD_SLUGS.map((f) => (
-              <label key={f}><input type="checkbox" checked={fields.includes(f)} onChange={() => toggle(f)} /> {f} </label>
+              <label key={f}><input type="checkbox" name={`field-${f}`} checked={fields.includes(f)} onChange={() => toggle(f)} /> {f} </label>
             ))}
           </p>
         )}

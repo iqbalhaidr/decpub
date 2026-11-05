@@ -1,4 +1,5 @@
 /** Bentuk balasan backend yang dipakai frontend (subset). Sumber kebenaran: server/src dan Swagger /api. */
+import type { Hex } from "viem";
 
 export interface PublicConfig {
   network: string;
@@ -235,4 +236,46 @@ export interface Manifest {
   sessionId: string;
   title: string;
   metadata: { authorName?: string; authorEmail?: string; affiliation?: string; [k: string]: unknown };
+}
+
+/** Balasan `GET /invitations` (editor atau penelaah). `inviteSalt` adalah rahasia penerima undangan. */
+export interface Invite {
+  id: string;
+  role: "editor" | "reviewer";
+  sessionId: Hex;
+  slot: number;
+  inviteSalt: Hex;
+  assignmentCommitment: Hex;
+  criteria: { fields: string[]; hash: Hex };
+  proofUri: string;
+  accepted: boolean;
+  voided?: boolean;
+  sessionStatus: string;
+  journal: { id: number; name: string; category: string } | null;
+  anonymizedManuscriptUrl: string | null;
+  createdAt: string;
+}
+
+export interface ProgressSummary {
+  status?: string;
+  actions?: string[];
+  blocked?: string | null;
+}
+
+export interface FieldRequest {
+  id: number;
+  userId: string;
+  fields: string[];
+  status: "pending" | "approved" | "rejected" | "superseded";
+  decidedBy: string | null;
+  createdAt: string;
+  updatedAt: string;
+  /** Hanya pada daftar admin. */
+  email?: string;
+}
+
+export interface JournalList {
+  categories: { slug: string; label: string }[];
+  journals: Journal[];
+  weightPresets: string[];
 }

@@ -16,7 +16,7 @@ let dir: string;
 
 before(async () => {
   dir = await mkdtemp(join(tmpdir(), "storage-sim-"));
-  const { app } = await createStorageApp({ dataDir: dir, maxBytes: 100_000 });
+  const { app } = await createStorageApp({ dataDir: dir, maxBytes: 100_000, corsOrigins: ["http://localhost:3000"] });
   server = app.listen(0, "127.0.0.1");
   await new Promise((r) => server.once("listening", r));
   base = `http://127.0.0.1:${(server.address() as AddressInfo).port}`;
@@ -157,3 +157,15 @@ describe("penyimpanan", () => {
 
 // Rangkaian tes yang sama dipakai untuk Kubo (lihat packages/shared/src/testing.ts).
 runStorageProviderSuite("simulator (dalam proses)", () => new HttpStorageProvider({ apiUrl: base, gatewayUrl: base }));
+
+describe("CORS (frontend menghitung CID di browser)", () => {
+  it("asal terdaftar diberi header, termasuk preflight; asal lain tidak", async () => {
+    const ok = await fetch(`${base}/api/v0/add?only-hash=true`, { method: "OPTIONS", headers: { Origin: "http://localhost:3000", "Access-Control-Request-Method": "POST" } });
+    assert.equal(ok.status, 204);
+    assert.equal(ok.headers.get("access-control-allow-origin"), "http://localhost:3000");
+    const other = await fetch(`${base}/healthz`, { headers: { Origin: "http://evil.example" } });
+    assert.equal(other.headers.get("access-control-allow-origin"), null);
+    const add2 = await fetch(`${base}/api/v0/add?only-hash=true`, { method: "POST", headers: { Origin: "http://localhost:3000" }, body: (() => { const f = new FormData(); f.append("file", new Blob(["x"]), "x"); return f; })() });
+    assert.equal(add2.headers.get("access-control-allow-origin"), "http://localhost:3000");
+  });
+});

@@ -48,10 +48,22 @@ export default async function Home() {
         <li>Rincian sesi, <Link href="/author">revisi, dan pengungkapan identitas</Link> dibuka dari daftar naskah sesuai status</li>
       </ul>
 
-      <h2>Editor, penelaah, admin (belum tersedia di halaman ini)</h2>
+      <h2>Editor</h2>
       <ul>
-        <li>Undangan, putusan, telaah, klaim imbalan, verifikasi bidang (M11)</li>
-        <li>Sementara aksi-aksi itu dijalankan skrip <code>npm run demo:m8</code> (lihat README)</li>
+        <li><Link href="/editor">Undangan dan putusan penyaringan</Link> (terima dengan pseudonim Editor, baca naskah anonim, Proceed / Revise / DeskReject; pengungkapan opsional setelah terbit)</li>
+      </ul>
+
+      <h2>Penelaah</h2>
+      <ul>
+        <li><Link href="/reviewer/specialization">Spesialisasi</Link>: minta verifikasi bidang (syarat menjadi kandidat)</li>
+        <li><Link href="/reviewer/assignments">Undangan</Link>: terima dengan pseudonim Reviewer baru dan pernyataan tingkat reputasi</li>
+        <li>Telaah: commit lalu reveal, dibuka dari daftar undangan (<code>/review/&lt;ID sesi&gt;</code>)</li>
+        <li><Link href="/reviewer/earnings">Imbalan dan reputasi</Link>: klaim ETH ke alamat baru, klaim reputasi</li>
+      </ul>
+
+      <h2>Admin</h2>
+      <ul>
+        <li><Link href="/admin">Admin</Link>: verifikasi bidang, kebijakan bobot jurnal, picu epoch reputasi, tutup fase telaah yang macet, alamat kontrak</li>
       </ul>
 
       {cfg && (

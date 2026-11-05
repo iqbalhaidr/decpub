@@ -18,6 +18,20 @@ export interface StorageSimOptions {
   dataDir: string;
   /** Batas ukuran satu berkas (byte). Bawaan 50 MiB. */
   maxBytes?: number;
+  /**
+   * Asal browser yang boleh memanggil API storage langsung. Frontend menghitung CID dokumen telaah di browser
+   * (`add?only-hash=true`) supaya teks telaah tidak lewat server sebelum reveal. Kosong = tanpa header CORS.
+   * Pada Kubo, setara `API.HTTPHeaders.Access-Control-Allow-Origin`.
+   */
+  corsOrigins?: string[];
+}
+
+/** Asal bawaan: frontend lokal. Dipisahkan koma pada env `STORAGE_CORS_ORIGIN`. */
+export function corsOriginsFromEnv(env: Record<string, string | undefined> = process.env): string[] {
+  return (env.STORAGE_CORS_ORIGIN ?? env.CORS_ORIGIN ?? "http://localhost:3000,http://127.0.0.1:3000")
+    .split(",")
+    .map((s) => s.trim())
+    .filter(Boolean);
 }
 
 export async function createStorageApp(opts: StorageSimOptions): Promise<{ app: Express; store: BlobStore }> {
@@ -31,6 +45,24 @@ export async function createStorageApp(opts: StorageSimOptions): Promise<{ app: 
 
   const app = express();
   app.disable("x-powered-by");
+
+  // CORS sederhana tanpa dependensi: hanya asal terdaftar yang diberi header (halaman HTML simulator tidak butuh CORS).
+  const allowed = new Set(opts.corsOrigins ?? []);
+  app.use((req: Request, res: Response, next) => {
+    const origin = req.headers.origin;
+    if (origin && allowed.has(origin)) {
+      res.setHeader("Access-Control-Allow-Origin", origin);
+      res.setHeader("Vary", "Origin");
+      res.setHeader("Access-Control-Allow-Methods", "GET, HEAD, POST, OPTIONS");
+      res.setHeader("Access-Control-Allow-Headers", "content-type");
+      res.setHeader("Access-Control-Max-Age", "600");
+    }
+    if (req.method === "OPTIONS") {
+      res.status(204).end();
+      return;
+    }
+    next();
+  });
 
   // ---- API gaya Kubo ----
   app.post("/api/v0/add", upload.any(), async (req: Request, res: Response) => {

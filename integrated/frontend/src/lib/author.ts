@@ -36,13 +36,15 @@ import { addNote, updateNote, type StoredNote } from "./notes";
 export interface AuthorCtx {
   cfg: PublicConfig;
   userId: string;
+  /** Surel akun yang sedang masuk (milik sendiri). Dipakai editor untuk pengungkapan: hanya surel akun yang bisa dicocokkan. */
+  email: string;
   secret: Hex;
 }
 
 export const chainInfo = (cfg: PublicConfig): ChainInfo => ({ chainId: cfg.chainId, name: cfg.network, rpcUrl: RPC_URL });
-const prover = (cfg: PublicConfig) => new HttpZkProver(process.env.NEXT_PUBLIC_ZK_URL ?? cfg.zkUrl, 30_000);
-const signer = (cfg: PublicConfig, privateKey: Hex) => ({ privateKey, chainId: cfg.chainId, gateway: cfg.contracts.ActionGateway as Address });
-const randomHex32 = (): Hex => toHex(crypto.getRandomValues(new Uint8Array(32)));
+export const prover = (cfg: PublicConfig) => new HttpZkProver(process.env.NEXT_PUBLIC_ZK_URL ?? cfg.zkUrl, 30_000);
+export const signer = (cfg: PublicConfig, privateKey: Hex) => ({ privateKey, chainId: cfg.chainId, gateway: cfg.contracts.ActionGateway as Address });
+export const randomHex32 = (): Hex => toHex(crypto.getRandomValues(new Uint8Array(32)));
 
 export interface IntakeResult {
   manuscriptId: string;
@@ -75,7 +77,7 @@ export interface AdvanceSummary {
 }
 
 /** Nonce gateway sebuah pseudonim, tanpa JWT. */
-async function nonceOf(pseudonym: Address): Promise<bigint> {
+export async function nonceOf(pseudonym: Address): Promise<bigint> {
   const { data } = await anonApi.get<{ nonce: string }>(`/flows/nonce/${pseudonym}`);
   return BigInt(data.nonce);
 }
@@ -233,8 +235,11 @@ export interface DisclosureResult {
  * Selective disclosure penulis: hanya atribut yang dipilih masuk ke hash dan ke chain. Bukti dibuat di zk-sim dari
  * secret; akun permanen diturunkan dari secret yang sama. TIDAK BISA DICABUT setelah terkirim.
  */
-export async function discloseAuthor(ctx: AuthorCtx, sessionId: Hex, attributes: DisclosureAttributes, includeManuscript: boolean): Promise<DisclosureResult> {
-  const role: DisclosableRole = Role.Author as DisclosableRole;
+export const discloseAuthor = (ctx: AuthorCtx, sessionId: Hex, attributes: DisclosureAttributes, includeManuscript: boolean) =>
+  discloseAs(ctx, Role.Author as DisclosableRole, sessionId, attributes, includeManuscript);
+
+/** Dasar pengungkapan untuk peran yang boleh diungkap: Author (0) dan Editor (2). Penelaah tidak pernah. */
+export async function discloseAs(ctx: AuthorCtx, role: DisclosableRole, sessionId: Hex, attributes: DisclosureAttributes, includeManuscript: boolean): Promise<DisclosureResult> {
   const account = permanentAccountAddress(ctx.secret);
   const salt = randomHex32();
   const pseudonym = deriveEphemeral(ctx.secret, sessionId, role, 0).pseudonym;
